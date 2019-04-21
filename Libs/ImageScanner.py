@@ -137,7 +137,7 @@ def MakeTrainingDataSet(directory):
     return faces, labels
 
 def TrainRecognizer(directory):
-    faceRecognizer = cv2.face.LBPHFaceRecognizer_create()
+    faceRecognizer = cv2.createLBPHFaceRecognizer()
     faces , labels = MakeTrainingDataSet(directory)
     faceRecognizer.train(faces,np.array(labels))
     return faceRecognizer
