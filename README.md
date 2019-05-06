@@ -1,13 +1,7 @@
-# PAnalizer
+# PAnalizer: pornography analizer and face searching
 
-you need the next package
+PAnalizer is a forensic tool, you can search pornographic images in a specific directory, this is util in Pedestrian Detection. Also you can search a specific person in image set, is necesesary give to the aplication a few pictures of the person of interest
 
-cv2 version 4.0.0
+Support Us on Patreon
 
-numpy version 1.16.2
-
-matplotlib version 3.0.3
-
-imutils version 0.5.2
-
-PyQt version 5.7.1
+https://www.patreon.com/LWADevelopments
