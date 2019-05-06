@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>621</width>
-    <height>509</height>
+    <height>499</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -55,7 +55,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Buscar</string>
+     <string>Search</string>
     </property>
    </widget>
    <widget class="QPushButton" name="SearchLearnButton">
@@ -68,7 +68,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Buscar</string>
+     <string>Search</string>
     </property>
    </widget>
    <widget class="QPushButton" name="FaceSearchButton">
@@ -81,7 +81,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Busqueda por rostro</string>
+     <string>Face Search</string>
     </property>
    </widget>
    <widget class="QProgressBar" name="progressBar">
@@ -107,7 +107,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Directorio para buscar:</string>
+     <string>Directory for searching</string>
     </property>
    </widget>
    <widget class="QLabel" name="label_2">
@@ -120,7 +120,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Directorio para aprender</string>
+     <string>Directory for learning</string>
     </property>
    </widget>
    <widget class="QPushButton" name="NudeSearchButton">
@@ -133,7 +133,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Busqueda de desnudos</string>
+     <string>Nude Search</string>
     </property>
    </widget>
    <widget class="QLabel" name="label_3">
@@ -146,7 +146,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Directorio para resultados</string>
+     <string>Directory for results</string>
     </property>
    </widget>
    <widget class="QTextEdit" name="DirectoryResult">
@@ -169,7 +169,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Buscar</string>
+     <string>Search</string>
     </property>
    </widget>
    <widget class="QPlainTextEdit" name="ShowResultText">
@@ -182,23 +182,6 @@
      </rect>
     </property>
    </widget>
-  </widget>
-  <widget class="QMenuBar" name="menubar">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>621</width>
-     <height>30</height>
-    </rect>
-   </property>
-   <widget class="QMenu" name="menuAyuda">
-    <property name="title">
-     <string>Ar&amp;chivo</string>
-    </property>
-    <addaction name="actionConfiguracion"/>
-   </widget>
-   <addaction name="menuAyuda"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionConfiguracion">

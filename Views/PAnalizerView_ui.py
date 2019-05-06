@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(621, 509)
+        MainWindow.resize(621, 499)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.gridLayoutWidget = QtWidgets.QWidget(self.centralwidget)
@@ -61,19 +61,11 @@ class Ui_MainWindow(object):
         self.ShowResultText.setGeometry(QtCore.QRect(10, 230, 599, 219))
         self.ShowResultText.setObjectName("ShowResultText")
         MainWindow.setCentralWidget(self.centralwidget)
-        self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 621, 30))
-        self.menubar.setObjectName("menubar")
-        self.menuAyuda = QtWidgets.QMenu(self.menubar)
-        self.menuAyuda.setObjectName("menuAyuda")
-        MainWindow.setMenuBar(self.menubar)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
         MainWindow.setStatusBar(self.statusbar)
         self.actionConfiguracion = QtWidgets.QAction(MainWindow)
         self.actionConfiguracion.setObjectName("actionConfiguracion")
-        self.menuAyuda.addAction(self.actionConfiguracion)
-        self.menubar.addAction(self.menuAyuda.menuAction())
 
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -81,15 +73,14 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
-        self.SearchDirectoryButton.setText(_translate("MainWindow", "Buscar"))
-        self.SearchLearnButton.setText(_translate("MainWindow", "Buscar"))
-        self.FaceSearchButton.setText(_translate("MainWindow", "Busqueda por rostro"))
-        self.label.setText(_translate("MainWindow", "Directorio para buscar:"))
-        self.label_2.setText(_translate("MainWindow", "Directorio para aprender"))
-        self.NudeSearchButton.setText(_translate("MainWindow", "Busqueda de desnudos"))
-        self.label_3.setText(_translate("MainWindow", "Directorio para resultados"))
-        self.SearchResultButton.setText(_translate("MainWindow", "Buscar"))
-        self.menuAyuda.setTitle(_translate("MainWindow", "Ar&chivo"))
+        self.SearchDirectoryButton.setText(_translate("MainWindow", "Search"))
+        self.SearchLearnButton.setText(_translate("MainWindow", "Search"))
+        self.FaceSearchButton.setText(_translate("MainWindow", "Face Search"))
+        self.label.setText(_translate("MainWindow", "Directory for searching"))
+        self.label_2.setText(_translate("MainWindow", "Directory for learning"))
+        self.NudeSearchButton.setText(_translate("MainWindow", "Nude Search"))
+        self.label_3.setText(_translate("MainWindow", "Directory for results"))
+        self.SearchResultButton.setText(_translate("MainWindow", "Search"))
         self.actionConfiguracion.setText(_translate("MainWindow", "&Configuracion"))
 
 
