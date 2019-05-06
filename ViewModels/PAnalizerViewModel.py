@@ -67,11 +67,12 @@ class MainWindow(QtWidgets.QMainWindow,Ui_MainWindow):
                     fullName = str(os.path.join(base, fileName))
                     image = cv2.imread(fullName)
                     if image is not None:
-                        bodies = BodySearch(image)
+                        bodies = GetBodyBorders(image)
                         if bodies is not None:
                             for item in bodies:
                                 hasNude = SkinScan(item)
                                 if hasNude:
+                                    print(fullName)
                                     self.ShowResultText.appendPlainText(fullName + '\n')
                                     destinyName = str(os.path.join(resultPath, fileName))
                                     copy(src = fullName, dst = destinyName)

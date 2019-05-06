@@ -28,6 +28,31 @@ def BodySearch(imagen):
         bodies.append(body)
     return bodies
 
+def GetBodyBorders(image):
+    bodies = []
+    mask = np.zeros(image.shape[:2],np.uint8)
+    bgdModel = np.zeros((1,65),np.float64)
+    fgdModel = np.zeros((1,65),np.float64)
+    hog = cv2.HOGDescriptor()
+    hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+    image = imutils.resize(image, width=min(400, image.shape[1]))
+    rects, weights = hog.detectMultiScale(image,winStride=(4, 4),
+                                          padding=(8, 8),scale=1.05)    
+    rects = np.array([[x, y, x + w, y + h] for (x, y, w, h) in rects])
+    pick = non_max_suppression(rects, probs=None, overlapThresh=0.65)    
+    if len(pick) > 0:
+        for (x, y, w, h) in pick:
+            try:
+                img = image
+                mask, bgdModel, fgdModel = cv2.grabCut(img, mask, (x, y, w, h), bgdModel, fgdModel,5,cv2.GC_INIT_WITH_RECT)
+                mask = np.where((mask==2)|(mask==0),0,1).astype('uint8')
+                img = img*mask[:,:,np.newaxis]
+                bodies.append(img)
+            except:
+                print("no bodies here")
+        return bodies
+
+
 def BinarizeImage(image):
     hsvImg = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     minValue = np.array([0,58,40])
@@ -44,7 +69,8 @@ def SkinScan(image):
         for y in range(width):
             if (image[x][y]==255): whitePixels+=1
     result = whitePixels/(height * width)
-    if (result>0.25):
+    print(result)
+    if (result>0.01):
         return True
     else:
         return False
@@ -137,7 +163,7 @@ def MakeTrainingDataSet(directory):
     return faces, labels
 
 def TrainRecognizer(directory):
-    faceRecognizer = cv2.createLBPHFaceRecognizer()
+    faceRecognizer = cv2.face.LBPHFaceRecognizer_create()
     faces , labels = MakeTrainingDataSet(directory)
     faceRecognizer.train(faces,np.array(labels))
     return faceRecognizer
@@ -151,4 +177,3 @@ def Recognize(faceRecognizer,image,distance):
                 return True
             else:
                 return False
-
