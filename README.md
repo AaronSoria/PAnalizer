@@ -93,6 +93,9 @@ pick a folder.
 - **Face Search**: also fill in the learning folder. Use several clear photos
   where the person's face is visible; only the first face detected in each
   reference photo is used, and subfolders of the learning folder are not read.
+  If no face is detected in any reference photo, a warning is shown and the
+  search does not start. An image is a match if any face in it is close
+  enough to the reference faces.
 
 The search and results folders must be different. Paths of matching images
 appear in the text area at the bottom of the window.
@@ -129,10 +132,6 @@ Read these before relying on any result.
   timestamps, and no hashes or logs are produced, so PAnalizer does not by
   itself provide evidence integrity or chain of custody. Work on a forensic
   copy of the data, never on the original evidence.
-- **Known bugs**: Face Search writes copies next to the results folder (the
-  folder path and file name are joined without a separator); only the first
-  face found in each searched image is compared; and if no face is detected
-  in any reference photo, Face Search stops with an OpenCV error.
 
 ## Responsible use
 
