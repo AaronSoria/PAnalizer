@@ -152,7 +152,7 @@ Read these before relying on any result.
   models produce false positives and false negatives; validate them on data
   representative of your cases.
 - **Fixed thresholds.** The nudity score threshold (0.6), the face similarity
-  threshold (0.363) and the face detection confidence (0.9) are set in
+  threshold (0.363) and the face detection confidence (0.7) are set in
   `Libs/ImageScanner.py` and cannot be changed from the interface.
 - **Small details can be missed.** NudeNet analyzes images at 320 pixels, and
   face detection runs on images reduced to at most 1280 pixels on their longest

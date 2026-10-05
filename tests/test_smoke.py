@@ -53,3 +53,14 @@ def test_main_window_constructs():
 
 def test_entry_point_imports():
     import PAnalizer  # noqa: F401  (guarded by __main__, so nothing starts)
+
+
+@needs_face_models
+def test_face_detector_uses_default_confidence(monkeypatch):
+    created = []
+    real_create = ImageScanner.cv2.FaceDetectorYN.create
+    monkeypatch.setattr(ImageScanner.cv2.FaceDetectorYN, "create",
+                        lambda *args: created.append(args) or real_create(*args))
+    ImageScanner.FaceModels()
+    assert ImageScanner.DEFAULT_DETECTION_SCORE == 0.7
+    assert created[0][3] == ImageScanner.DEFAULT_DETECTION_SCORE

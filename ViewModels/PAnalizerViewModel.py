@@ -8,6 +8,7 @@ from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
 
 from Libs.ImageScanner import (
+    DEFAULT_DETECTION_SCORE,
     DEFAULT_FACE_THRESHOLD,
     DEFAULT_NUDITY_THRESHOLD,
     AppendToLog,
@@ -144,6 +145,7 @@ class FaceWorker(ScanWorker):
             **super().settings(),
             "model": "OpenCV YuNet 2023mar + SFace 2021dec",
             "threshold_cosine": self.threshold,
+            "detection_confidence": DEFAULT_DETECTION_SCORE,
             "reference_directory": self.learn_path,
             "reference_files": self.reference_files,
         }

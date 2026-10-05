@@ -37,6 +37,10 @@ DEFAULT_NUDITY_THRESHOLD = 0.6
 # Cosine-similarity threshold recommended for SFace in OpenCV's
 # samples/dnn/face_detect.py (same person if similarity >= 0.363).
 DEFAULT_FACE_THRESHOLD = 0.363
+# Minimum YuNet face confidence. 0.9 (OpenCV's sample default) missed a
+# clearly visible face in a real-photo test; 0.7 found it with no new false
+# matches.
+DEFAULT_DETECTION_SCORE = 0.7
 # YuNet runs on images downscaled so their longest side is at most this.
 MAX_DETECTION_SIDE = 1280
 
@@ -128,7 +132,7 @@ def _model_path(models_dir, name):
 class FaceModels:
     """YuNet face detector and SFace recognizer."""
 
-    def __init__(self, models_dir=MODELS_DIR, score_threshold=0.9):
+    def __init__(self, models_dir=MODELS_DIR, score_threshold=DEFAULT_DETECTION_SCORE):
         self.detector = cv2.FaceDetectorYN.create(
             _model_path(models_dir, YUNET_MODEL), "", (320, 320), score_threshold, 0.3, 5000
         )
