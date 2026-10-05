@@ -1,12 +1,14 @@
 # Standard library imports
 import os
-import re
 # Third party imports
 from shutil import copy
-from PyQt5.QtWidgets import QFileDialog
+
+import cv2
+from PyQt5 import QtWidgets
+from PyQt5.QtWidgets import QFileDialog, QMessageBox
 # Local application imports
-from Views.PAnalizerView_ui import *
-from Libs.ImageScanner import *
+from Views.PAnalizerView_ui import Ui_MainWindow
+from Libs.ImageScanner import GetBodyBorders, Recognize, SkinScan, TrainRecognizer
 
 class MainWindow(QtWidgets.QMainWindow,Ui_MainWindow):
     def __init__(self, *args, **kwargs):
@@ -41,6 +43,11 @@ class MainWindow(QtWidgets.QMainWindow,Ui_MainWindow):
             #totalFiles = len(os.walk(searchPath))
             #progressBarStep = totalFiles / 100
             recognizer = TrainRecognizer(learnPath)
+            if recognizer is None:
+                QMessageBox.warning(self, "Face Search",
+                                    "No face was detected in the photos of the learning directory. "
+                                    "Add clear photos of the person's face and try again.")
+                return
             for base, dirs, files in os.walk(searchPath):
                 #count += progressBarStep
                 #self.progressBar.setValue(count)
@@ -51,7 +58,7 @@ class MainWindow(QtWidgets.QMainWindow,Ui_MainWindow):
                         prediction = Recognize(recognizer,image,50)
                         if prediction:
                             self.ShowResultText.appendPlainText(fullName + '\n')
-                            copy(src = fullName, dst = resultPath+fileName)                            
+                            copy(src = fullName, dst = os.path.join(resultPath, fileName))                            
 
     def OnNudeSearchButtonClick(self):
         searchPath = str(self.DirectorySearch.toPlainText())

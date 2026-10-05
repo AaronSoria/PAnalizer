@@ -1,0 +1,42 @@
+name: Bug report
+description: Report an installation problem, crash or incorrect result
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not attach, upload or link explicit or illegal images.**
+        Describe the problem in text or reproduce it with harmless test images.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: Error output
+      description: Full error message or traceback, if any.
+      render: text
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: e.g. Windows 11, Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      description: Output of `python --version`
+    validations:
+      required: true
+  - type: textarea
+    id: freeze
+    attributes:
+      label: Installed packages
+      description: Output of `pip freeze`
+      render: text
