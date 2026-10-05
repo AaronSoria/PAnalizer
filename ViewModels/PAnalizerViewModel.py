@@ -53,7 +53,7 @@ class MainWindow(QtWidgets.QMainWindow,Ui_MainWindow):
                         prediction = Recognize(recognizer,image,50)
                         if prediction:
                             self.ShowResultText.appendPlainText(fullName + '\n')
-                            copy(src = fullName, dst = resultPath+fileName)                            
+                            copy(src = fullName, dst = os.path.join(resultPath, fileName))                            
 
     def OnNudeSearchButtonClick(self):
         searchPath = str(self.DirectorySearch.toPlainText())
