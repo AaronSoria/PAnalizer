@@ -1,6 +1,9 @@
 import os
 import sys
 
+# Same reason as in PAnalizer.py: load onnxruntime before any test imports PyQt5.
+import onnxruntime  # noqa: F401
+
 # Run Qt without a display (CI, headless servers).
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
