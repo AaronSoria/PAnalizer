@@ -71,3 +71,20 @@ def test_recognize_checks_every_face(monkeypatch, distances, expected):
     monkeypatch.setattr(ImageScanner, "FaceSearchForRecognize", lambda image: (faces, [None] * len(faces)))
 
     assert ImageScanner.Recognize(_FakeRecognizer(distances), image=None, distance=50) is expected
+
+
+def test_train_recognizer_without_reference_faces_returns_none(tmp_path):
+    cv2.imwrite(str(tmp_path / "no_face.png"), np.zeros((64, 64, 3), dtype=np.uint8))
+    assert ImageScanner.TrainRecognizer(str(tmp_path)) is None
+
+
+def test_face_search_without_reference_faces_warns_and_stops(window, folders, monkeypatch):
+    search, learn, results = folders
+    warnings = []
+    monkeypatch.setattr(PAnalizerViewModel.QMessageBox, "warning", lambda *args: warnings.append(args))
+    _fill(window, search, learn, results)
+
+    window.OnFaceSearchButtonClick()  # learn folder is empty: must not raise
+
+    assert len(warnings) == 1
+    assert os.listdir(results) == []

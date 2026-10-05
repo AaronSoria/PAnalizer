@@ -5,7 +5,7 @@ from shutil import copy
 
 import cv2
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QFileDialog
+from PyQt5.QtWidgets import QFileDialog, QMessageBox
 # Local application imports
 from Views.PAnalizerView_ui import Ui_MainWindow
 from Libs.ImageScanner import GetBodyBorders, Recognize, SkinScan, TrainRecognizer
@@ -43,6 +43,11 @@ class MainWindow(QtWidgets.QMainWindow,Ui_MainWindow):
             #totalFiles = len(os.walk(searchPath))
             #progressBarStep = totalFiles / 100
             recognizer = TrainRecognizer(learnPath)
+            if recognizer is None:
+                QMessageBox.warning(self, "Face Search",
+                                    "No face was detected in the photos of the learning directory. "
+                                    "Add clear photos of the person's face and try again.")
+                return
             for base, dirs, files in os.walk(searchPath):
                 #count += progressBarStep
                 #self.progressBar.setValue(count)
