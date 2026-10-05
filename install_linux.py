@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2019-2026 Aaron Soria
+
 """Install PAnalizer's Python dependencies and face models on Linux.
 
 Run with the Python interpreter you will use to start PAnalizer, ideally

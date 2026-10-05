@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2019-2026 Aaron Soria
+
 """Image analysis for PAnalizer.
 
 - Nudity screening: NudeNet 3.x detector (ONNX model bundled with the

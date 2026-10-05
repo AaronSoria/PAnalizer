@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2019-2026 Aaron Soria
+
 """Download the OpenCV face models used by Face Search into models/.
 
 Each file is verified against a pinned SHA-256 hash. Files that are already
