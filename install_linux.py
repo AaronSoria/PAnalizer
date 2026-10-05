@@ -1,12 +1,29 @@
+"""Install PAnalizer's Python dependencies on Linux.
 
-###################################################
-#  Run this script and install all dependencies.
-###################################################
+Run with the Python interpreter you will use to start PAnalizer, ideally
+inside a virtual environment (no sudo required):
+
+    python3 -m venv .venv
+    . .venv/bin/activate
+    python install_linux.py
+"""
+
 import os
-os.system('sudo apt-get install python-pip')
-os.system('sudo pip install imutils==0.5.2')
-os.system('sudo pip install matplotlib==3.0.3')
-os.system('sudo pip install numpy==1.16.2')
-os.system('sudo pip install opencv-python==4.0.0.21')
-os.system('sudo pip install opencv-contrib-python==4.0.0.21')
-os.system('sudo pip install PyQt5==5.7')
+import subprocess
+import sys
+
+MIN_PYTHON = (3, 11)
+REQUIREMENTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "requirements.txt")
+
+
+def main():
+    if sys.version_info < MIN_PYTHON:
+        sys.exit("PAnalizer requires Python %d.%d or newer (found %s)."
+                 % (MIN_PYTHON + (sys.version.split()[0],)))
+    cmd = [sys.executable, "-m", "pip", "install", "-r", REQUIREMENTS]
+    print(">>> " + " ".join(cmd))
+    sys.exit(subprocess.call(cmd))
+
+
+if __name__ == "__main__":
+    main()
