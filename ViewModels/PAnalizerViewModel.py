@@ -1,12 +1,14 @@
 # Standard library imports
 import os
-import re
 # Third party imports
 from shutil import copy
+
+import cv2
+from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QFileDialog
 # Local application imports
-from Views.PAnalizerView_ui import *
-from Libs.ImageScanner import *
+from Views.PAnalizerView_ui import Ui_MainWindow
+from Libs.ImageScanner import GetBodyBorders, Recognize, SkinScan, TrainRecognizer
 
 class MainWindow(QtWidgets.QMainWindow,Ui_MainWindow):
     def __init__(self, *args, **kwargs):

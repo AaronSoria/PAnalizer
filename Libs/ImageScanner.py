@@ -1,11 +1,9 @@
 import os
-import datetime
 
 import imutils
 import cv2
 import numpy as np
 from imutils.object_detection import non_max_suppression
-from imutils import paths
 
 
 
@@ -45,7 +43,7 @@ def GetBodyBorders(image):
                 mask = np.where((mask==2)|(mask==0),0,1).astype('uint8')
                 img = img*mask[:,:,np.newaxis]
                 bodies.append(img)
-            except:
+            except Exception:
                 print("no bodies here")
         return bodies
 
@@ -64,7 +62,8 @@ def SkinScan(image):
     height, width = image.shape
     for x in range(height):
         for y in range(width):
-            if (image[x][y]==255): whitePixels+=1
+            if (image[x][y]==255):
+                whitePixels+=1
     result = whitePixels/(height * width)
     print(result)
     if (result>0.01):
@@ -167,7 +166,7 @@ def TrainRecognizer(directory):
 
 def Recognize(faceRecognizer,image,distance):
     persons, rects = FaceSearchForRecognize(image)
-    if not persons is None or len(persons) != 0:
+    if persons is not None or len(persons) != 0:
         for item in persons:
             label = faceRecognizer.predict(item)
             if (label[1]<distance):
