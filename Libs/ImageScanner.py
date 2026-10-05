@@ -1,12 +1,9 @@
 import os
-import sys
 import datetime
-from pathlib import Path
 
 import imutils
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 from imutils.object_detection import non_max_suppression
 from imutils import paths
 
