@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 from PyQt5 import QtWidgets
 
+from Libs import ImageScanner
 from ViewModels import PAnalizerViewModel
 
 
@@ -44,3 +45,29 @@ def test_face_search_copies_match_into_results_folder(window, folders, monkeypat
 
     assert os.listdir(results) == ["photo.png"]
     assert not os.path.exists(str(results) + "photo.png")
+
+
+class _FakeRecognizer:
+    """Returns the given LBPH distances, one per predict() call."""
+
+    def __init__(self, distances):
+        self._distances = iter(distances)
+
+    def predict(self, face):
+        return 1, next(self._distances)
+
+
+@pytest.mark.parametrize(
+    ("distances", "expected"),
+    [
+        ([90.0, 10.0], True),   # match is not the first face
+        ([10.0, 90.0], True),
+        ([90.0, 80.0], False),
+        ([], False),            # no faces in the image
+    ],
+)
+def test_recognize_checks_every_face(monkeypatch, distances, expected):
+    faces = [np.zeros((8, 8), dtype=np.uint8) for _ in distances]
+    monkeypatch.setattr(ImageScanner, "FaceSearchForRecognize", lambda image: (faces, [None] * len(faces)))
+
+    assert ImageScanner.Recognize(_FakeRecognizer(distances), image=None, distance=50) is expected

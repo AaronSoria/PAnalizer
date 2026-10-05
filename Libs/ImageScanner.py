@@ -166,10 +166,8 @@ def TrainRecognizer(directory):
 
 def Recognize(faceRecognizer,image,distance):
     persons, rects = FaceSearchForRecognize(image)
-    if persons is not None or len(persons) != 0:
-        for item in persons:
-            label = faceRecognizer.predict(item)
-            if (label[1]<distance):
-                return True
-            else:
-                return False
+    for item in persons:
+        label = faceRecognizer.predict(item)
+        if (label[1]<distance):
+            return True
+    return False
