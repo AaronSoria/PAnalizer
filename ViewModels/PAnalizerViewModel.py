@@ -6,7 +6,9 @@ import os
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, QThread, QUrl, pyqtSignal
 from PyQt5.QtGui import QDesktopServices
-from PyQt5.QtWidgets import QFileDialog, QHeaderView, QMessageBox, QTableWidgetItem
+from PyQt5.QtWidgets import QFileDialog, QHeaderView, QLabel, QMessageBox, QTableWidgetItem
+
+from Libs import __version__
 
 from Libs.ImageScanner import (
     DEFAULT_DETECTION_SCORE,
@@ -189,6 +191,27 @@ class FaceWorker(ScanWorker):
 # Main window
 # ──────────────────────────────────────────────
 
+SOURCE_URL = "https://github.com/AaronSoria/PAnalizer"
+
+ABOUT_HTML = f"""
+<h3>PAnalizer {__version__}</h3>
+<p>Forensic image triage: nudity screening and person-of-interest search.</p>
+<p>Copyright (C) 2019-2026 Aaron Soria<br>
+Source code: <a href="{SOURCE_URL}">{SOURCE_URL}</a></p>
+<p>This program is free software: you can redistribute it and/or modify it under the terms of the
+GNU Affero General Public License as published by the Free Software Foundation, either version 3
+of the License, or (at your option) any later version.</p>
+<p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+<a href="https://www.gnu.org/licenses/agpl-3.0.html">GNU Affero General Public License</a> for more
+details.</p>
+<p><b>Third-party components:</b> NudeNet (AGPL-3.0), YuNet face detection model (MIT),
+SFace face recognition model (Apache-2.0), OpenCV (Apache-2.0), ONNX Runtime (MIT),
+Qt / PyQt5 (GPL-3.0).</p>
+<p><b>Responsible use:</b> use PAnalizer only on data you are legally authorized to examine.
+Automated results are leads, not conclusions; have every match reviewed by a qualified person.</p>
+"""
+
 STYLE_SHEET = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Views", "style.qss")
 
 
@@ -224,6 +247,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.actionOpenResults.triggered.connect(self.OpenResultsFolder)
         self.actionOpenLog.triggered.connect(self.OpenLog)
         self.actionQuit.triggered.connect(self.close)
+        self.actionAbout.triggered.connect(self.ShowAbout)
         self.DirectoryResult.textChanged.connect(self._update_open_buttons)
 
     # ── Folder selection ──
@@ -372,6 +396,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def OpenLog(self):
         if self._log_path:
             self._open(self._log_path)
+
+    # ── About ──
+
+    def ShowAbout(self):
+        box = QMessageBox(self)
+        box.setWindowTitle("About PAnalizer")
+        box.setTextFormat(Qt.RichText)
+        box.setText(ABOUT_HTML)
+        box.findChild(QLabel, "qt_msgbox_label").setOpenExternalLinks(True)
+        box.exec_()
 
     # ── Actions ──
 

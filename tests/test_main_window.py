@@ -94,3 +94,19 @@ def test_failed_scan_is_not_reported_as_finished(window, monkeypatch):
     window._on_failed("No face was detected in the reference photos.")
     window._on_finished(0, 0)
     assert window.progressLabel.text() == "Did not complete · 0 images · 0 matches"
+
+
+def test_about_shows_version_license_and_warranty_notice():
+    from Libs import __version__
+
+    html = PAnalizerViewModel.ABOUT_HTML
+    assert f"PAnalizer {__version__}" in html
+    assert "GNU Affero General Public License" in html and "WITHOUT ANY WARRANTY" in html
+    assert "NudeNet (AGPL-3.0)" in html and "https://github.com/AaronSoria/PAnalizer" in html
+
+
+def test_about_action_opens_dialog(window, monkeypatch):
+    shown = []
+    monkeypatch.setattr(PAnalizerViewModel.QMessageBox, "exec_", lambda box: shown.append(box.text()))
+    window.actionAbout.trigger()
+    assert len(shown) == 1 and "PAnalizer" in shown[0]
