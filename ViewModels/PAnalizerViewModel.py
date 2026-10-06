@@ -133,7 +133,12 @@ class NudityWorker(ScanWorker):
         self.detector = None
 
     def settings(self):
-        return {**super().settings(), "model": "NudeNet 3.x NudeDetector", "threshold": self.threshold}
+        return {
+            **super().settings(),
+            "model": "NudeNet 3.x NudeDetector",
+            "threshold": self.threshold,
+            "default_thresholds": self.threshold == DEFAULT_NUDITY_THRESHOLD,
+        }
 
     def prepare(self):
         self.status_message.emit("Loading nudity detection model...")
@@ -150,10 +155,12 @@ class NudityWorker(ScanWorker):
 class FaceWorker(ScanWorker):
     scan_type = "face"
 
-    def __init__(self, search_path, learn_path, result_path, threshold=DEFAULT_FACE_THRESHOLD):
+    def __init__(self, search_path, learn_path, result_path, threshold=DEFAULT_FACE_THRESHOLD,
+                 detection_score=DEFAULT_DETECTION_SCORE):
         super().__init__(search_path, result_path)
         self.learn_path = learn_path
         self.threshold = threshold
+        self.detection_score = detection_score
         self.models = None
         self.reference_features = []
         self.reference_files = []
@@ -163,14 +170,16 @@ class FaceWorker(ScanWorker):
             **super().settings(),
             "model": "OpenCV YuNet 2023mar + SFace 2021dec",
             "threshold_cosine": self.threshold,
-            "detection_confidence": DEFAULT_DETECTION_SCORE,
+            "detection_confidence": self.detection_score,
+            "default_thresholds": (self.threshold, self.detection_score)
+            == (DEFAULT_FACE_THRESHOLD, DEFAULT_DETECTION_SCORE),
             "reference_directory": self.learn_path,
             "reference_files": self.reference_files,
         }
 
     def prepare(self):
         self.status_message.emit("Loading face models and reference photos...")
-        self.models = FaceModels()
+        self.models = FaceModels(score_threshold=self.detection_score)
         self.reference_features, self.reference_files = BuildFaceEncodings(self.learn_path, self.models)
         if not self.reference_features:
             raise RuntimeError(
