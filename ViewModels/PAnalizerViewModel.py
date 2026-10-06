@@ -11,6 +11,7 @@ from Libs.ImageScanner import (
     DEFAULT_DETECTION_SCORE,
     DEFAULT_FACE_THRESHOLD,
     DEFAULT_NUDITY_THRESHOLD,
+    EXPLICIT_CLASSES,
     AppendToLog,
     BuildFaceEncodings,
     CollectImageFiles,
@@ -19,6 +20,7 @@ from Libs.ImageScanner import (
     FaceModels,
     LoadNudityDetector,
     MakeLogEntry,
+    MakeSessionEnd,
     ReadImage,
     RecognizeFaces,
     ScanNudity,
@@ -31,8 +33,9 @@ from Views.PAnalizerView_ui import Ui_MainWindow
 # ──────────────────────────────────────────────
 
 class ScanWorker(QThread):
-    progress = pyqtSignal(int)              # 0-100
-    result_found = pyqtSignal(str)          # path of a matching file
+    progress = pyqtSignal(int, int)         # (files processed, total files)
+    result_found = pyqtSignal(str, float, str)  # (matching file, score, copied to or "")
+    log_created = pyqtSignal(str)           # path of the session log
     status_message = pyqtSignal(str)
     failed = pyqtSignal(str)                # error that stopped the scan
     scan_finished = pyqtSignal(int, int)    # (files analyzed, matches)
@@ -46,6 +49,7 @@ class ScanWorker(QThread):
         self._stop = False
         self._analyzed = 0
         self._matches = 0
+        self.stopped = False
 
     def stop(self):
         self._stop = True
@@ -58,6 +62,10 @@ class ScanWorker(QThread):
 
     def analyze(self, image):
         """Return (is_match, details) for a BGR image."""
+        raise NotImplementedError
+
+    def score(self, details):
+        """Return the score shown for a match (higher means stronger)."""
         raise NotImplementedError
 
     def run(self):
@@ -77,15 +85,19 @@ class ScanWorker(QThread):
             return
 
         log_path = CreateSessionLog(self.result_path, self.scan_type, self.settings())
+        self.log_created.emit(log_path)
+        self.progress.emit(0, total)
         for i, file_path in enumerate(image_files):
             if self._stop:
+                self.stopped = True
                 break
-            self.status_message.emit(f"Analyzing ({i + 1}/{total}): {os.path.basename(file_path)}")
+            self.status_message.emit(f"Analyzing: {os.path.basename(file_path)}")
             AppendToLog(log_path, self._process(file_path))
             self._analyzed += 1
-            self.progress.emit(int((i + 1) / total * 100))
+            self.progress.emit(i + 1, total)
 
-        stopped = " (stopped)" if self._stop else ""
+        AppendToLog(log_path, MakeSessionEnd(total, self._analyzed, self._matches, self.stopped))
+        stopped = " (stopped)" if self.stopped else ""
         self.status_message.emit(
             f"Done{stopped}. {self._matches} match(es) in {self._analyzed} of {total} image(s). Log: {log_path}"
         )
@@ -101,11 +113,11 @@ class ScanWorker(QThread):
         copied_to, error = None, None
         if is_match:
             self._matches += 1
-            self.result_found.emit(file_path)
             try:
                 copied_to = CopyToResults(file_path, self.result_path)
             except OSError as e:
                 error = f"copy failed: {e}"
+            self.result_found.emit(file_path, self.score(details), copied_to or "")
         return MakeLogEntry(file_path, is_match, details, copied_to=copied_to, error=error)
 
 
@@ -127,6 +139,9 @@ class NudityWorker(ScanWorker):
     def analyze(self, image):
         is_explicit, detections = ScanNudity(image, threshold=self.threshold, detector=self.detector)
         return is_explicit, {"detections": detections}
+
+    def score(self, details):
+        return max((d["score"] for d in details["detections"] if d["class"] in EXPLICIT_CLASSES), default=0.0)
 
 
 class FaceWorker(ScanWorker):
@@ -164,6 +179,9 @@ class FaceWorker(ScanWorker):
     def analyze(self, image):
         found, faces = RecognizeFaces(image, self.reference_features, self.models, threshold=self.threshold)
         return found, {"faces": faces}
+
+    def score(self, details):
+        return max((f["similarity"] for f in details["faces"]), default=0.0)
 
 
 # ──────────────────────────────────────────────
@@ -234,8 +252,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._set_ui_running(True)
         self.statusbar.showMessage(message)
         self._worker = worker
-        worker.progress.connect(self.progressBar.setValue)
-        worker.result_found.connect(self.ShowResultText.appendPlainText)
+        worker.progress.connect(lambda done, total: self.progressBar.setValue(int(done / total * 100)))
+        worker.result_found.connect(lambda path, score, copied_to: self.ShowResultText.appendPlainText(path))
         worker.status_message.connect(self.statusbar.showMessage)
         worker.failed.connect(self._on_failed)
         worker.scan_finished.connect(self._on_finished)

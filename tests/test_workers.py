@@ -21,7 +21,7 @@ def _record(worker):
     events = {"failed": [], "finished": [], "found": []}
     worker.failed.connect(events["failed"].append)
     worker.scan_finished.connect(lambda analyzed, matches: events["finished"].append((analyzed, matches)))
-    worker.result_found.connect(events["found"].append)
+    worker.result_found.connect(lambda path, score, copied_to: events["found"].append((path, score, copied_to)))
     return events
 
 
@@ -60,12 +60,16 @@ def test_nudity_worker_end_to_end(tmp_path, monkeypatch):
     assert events["failed"] == []
     assert events["finished"] == [(4, 2)]
     assert len(events["found"]) == 2
+    for path, score, copied_to in events["found"]:
+        assert score == 0.9 and os.path.dirname(copied_to) == str(results)
     assert sorted(f for f in os.listdir(results) if f.endswith(".png")) == ["img.png", "img_1.png"]
     lines = _log_lines(results)
     assert lines[0]["scan_type"] == "nudity" and lines[0]["settings"]["threshold"] == 0.6
-    by_file = {os.path.basename(e["file"]): e for e in lines[1:]}
+    by_file = {os.path.basename(e["file"]): e for e in lines[1:-1]}
     assert by_file["corrupt.jpg"]["error"] == "could not decode image"
     assert by_file["safe.png"]["match"] is False
+    assert lines[-1] == {**lines[-1], "event": "session_end", "images_found": 4, "images_analyzed": 4,
+                         "matches": 2, "stopped_by_user": False}
 
 
 def test_face_worker_reports_missing_models_and_still_finishes(tmp_path, monkeypatch):
@@ -121,3 +125,40 @@ def test_face_worker_end_to_end(tmp_path, monkeypatch):
     assert events["finished"] == [(2, 1)]
     assert "match.png" in os.listdir(results) and "other.png" not in os.listdir(results)
     assert _log_lines(results)[0]["settings"]["reference_files"] == ["r.jpg"]
+
+
+def test_stopped_scan_is_recorded_in_log(tmp_path, monkeypatch):
+    search, results = tmp_path / "search", tmp_path / "results"
+    results.mkdir()
+    for i in range(3):
+        _image(search / f"img{i}.png", 10)
+
+    class StopAfterFirst(ValueDetector):
+        def __init__(self):
+            self.worker = None
+
+        def detect(self, image):
+            self.worker.stop()
+            return []
+
+    detector = StopAfterFirst()
+    monkeypatch.setattr(PAnalizerViewModel, "LoadNudityDetector", lambda: detector)
+    worker = PAnalizerViewModel.NudityWorker(str(search), str(results))
+    detector.worker = worker
+    progress = []
+    worker.progress.connect(lambda done, total: progress.append((done, total)))
+    events = _record(worker)
+    worker.run()
+
+    assert worker.stopped is True
+    assert events["finished"] == [(1, 0)]
+    assert progress == [(0, 3), (1, 3)]
+    end = _log_lines(results)[-1]
+    assert end["event"] == "session_end" and end["stopped_by_user"] is True
+    assert end["images_found"] == 3 and end["images_analyzed"] == 1
+
+
+def test_face_worker_score_is_best_similarity():
+    worker = PAnalizerViewModel.FaceWorker("s", "l", "r")
+    assert worker.score({"faces": [{"similarity": 0.2}, {"similarity": 0.7}]}) == 0.7
+    assert worker.score({"faces": []}) == 0.0
