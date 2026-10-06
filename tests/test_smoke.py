@@ -45,8 +45,8 @@ def test_main_window_constructs():
     from ViewModels.PAnalizerViewModel import MainWindow
 
     window = MainWindow()
-    assert window.FaceSearchButton.text() == "Face Search"
-    assert window.NudeSearchButton.text() == "Nude Search"
+    assert window.FaceSearchButton.text() == "Face search"
+    assert window.NudeSearchButton.text() == "Nudity screening"
     window.close()
     assert app is not None
 

@@ -247,6 +247,17 @@ def AppendToLog(log_path, entry):
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
+def MakeSessionEnd(total, analyzed, matches, stopped):
+    return {
+        "event": "session_end",
+        "timestamp": _now(),
+        "images_found": total,
+        "images_analyzed": analyzed,
+        "matches": matches,
+        "stopped_by_user": stopped,
+    }
+
+
 def MakeLogEntry(image_path, is_match, details=None, copied_to=None, error=None):
     entry = {
         "event": "result",

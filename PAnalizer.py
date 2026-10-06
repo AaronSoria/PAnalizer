@@ -13,6 +13,7 @@ from ViewModels import PAnalizerViewModel
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication([])
+    app.setStyle("Fusion")
     CurrentWindow = PAnalizerViewModel.MainWindow()
     CurrentWindow.show()
     app.exec_()

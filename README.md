@@ -15,6 +15,8 @@ Matching images are listed in the application, copied to a results folder,
 and recorded in a session log. PAnalizer is a triage aid: every result must be
 reviewed by a person.
 
+![PAnalizer main window during a face search (example data)](docs/screenshot.png)
+
 ## Features
 
 - **Nudity screening** with the [NudeNet](https://github.com/notAI-tech/NudeNet)
@@ -34,8 +36,10 @@ reviewed by a person.
   copied, and any error.
 - **Copies never overwrite each other.** Files with the same name get a
   `_1`, `_2`, … suffix, and copies keep the original file timestamps.
-- **Responsive interface.** Scans run in the background with a progress bar
-  and status messages.
+- **Desktop interface** for Windows and Linux. Scans run in the background
+  with progress, image and match counts, and a Stop button. Matches are
+  listed in a table with their score; **no thumbnails are shown**, so explicit
+  content is only displayed when the examiner chooses to open it.
 - **Recursive search** of the selected folder and its subfolders for
   `.jpg`, `.jpeg`, `.png`, `.bmp`, `.tif`, `.tiff` and `.webp` files. Paths
   with non-ASCII characters are supported.
@@ -108,27 +112,43 @@ upgrading the old one.
 python PAnalizer.py
 ```
 
-The window has three folder fields; use the **Search** button next to each to
-pick a folder.
+Choose the folders in the **Folders** section (type a path or use **Browse…**):
 
 | Field | Used by | Purpose |
 |---|---|---|
-| Directory for searching | both | Images to analyze (subfolders included) |
-| Directory for learning | Face Search | Reference photos of the person of interest |
-| Directory for results | both | Where matching images and the session log are saved |
+| Images to analyze | both | Images to analyze (subfolders included) |
+| Reference photos | Face search | Photos of the person of interest |
+| Results | both | Where matching images and the session log are saved |
 
-- **Nude Search**: fill in the search and results folders, then click
-  **Nude Search**.
-- **Face Search**: also fill in the learning folder. Use several clear photos
+Then start an analysis:
+
+- **Nudity screening** needs the images and results folders.
+- **Face search** also needs the reference photos. Use several clear photos
   where the person's face is visible. From each reference photo, the face
-  detected with the highest confidence is used; subfolders of the learning
+  detected with the highest confidence is used; subfolders of the reference
   folder are not read. If no face is detected in any reference photo, a
   warning is shown and the search does not start.
 
-The search and results folders must be different. Paths of matching images
-appear in the text area at the bottom of the window, and the status bar shows
-progress and the log file location when the scan ends. Closing the window
-during a scan stops it after the current image.
+The images and results folders must be different. While a scan runs, the
+progress bar shows how many images have been analyzed and how many matched.
+**Stop** ends the scan after the current image (closing the window does the
+same); the log records that it was stopped.
+
+Matches appear in the **Matches** table: the file (relative to the analyzed
+folder; hover for the full path), its score, and the name of the copy in the
+results folder. The score is the highest explicit-content detection score
+(nudity screening, 0–1) or the highest similarity to the reference faces
+(face search). **Open results folder** and **Open log** (also in the File
+menu) open them with the system's default application.
+
+**Remembered folders.** The last folders used are restored when PAnalizer
+starts. They are stored in a plain text file, `%APPDATA%\PAnalizer\PAnalizer.ini`
+on Windows or `~/.config/PAnalizer/PAnalizer.ini` on Linux. Use
+**File › Forget recent folders** to delete them, for example before handing
+the machine to another examiner.
+
+**Help › About PAnalizer** shows the version, license and third-party
+licenses.
 
 ## Project structure
 
@@ -137,6 +157,8 @@ PAnalizer.py                      Entry point: starts the Qt application
 ViewModels/PAnalizerViewModel.py  Main window and background scan workers
 Views/PAnalizerView.ui            Qt Designer layout
 Views/PAnalizerView_ui.py         Python code generated from the .ui file (pyuic5)
+Views/style.qss                   Interface style sheet (colors, spacing)
+docs/screenshot.png               Screenshot used in this README
 Libs/ImageScanner.py              Nudity detection, face detection/recognition, copies, log
 download_models.py                Downloads and verifies the face models
 install_linux.py, install_windows.py  Install dependencies and models

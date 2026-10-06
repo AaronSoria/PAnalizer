@@ -4,13 +4,17 @@
 import os
 
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import QThread, pyqtSignal
-from PyQt5.QtWidgets import QFileDialog, QMessageBox
+from PyQt5.QtCore import QSettings, Qt, QThread, QUrl, pyqtSignal
+from PyQt5.QtGui import QDesktopServices
+from PyQt5.QtWidgets import QFileDialog, QHeaderView, QLabel, QMessageBox, QTableWidgetItem
+
+from Libs import __version__
 
 from Libs.ImageScanner import (
     DEFAULT_DETECTION_SCORE,
     DEFAULT_FACE_THRESHOLD,
     DEFAULT_NUDITY_THRESHOLD,
+    EXPLICIT_CLASSES,
     AppendToLog,
     BuildFaceEncodings,
     CollectImageFiles,
@@ -19,6 +23,7 @@ from Libs.ImageScanner import (
     FaceModels,
     LoadNudityDetector,
     MakeLogEntry,
+    MakeSessionEnd,
     ReadImage,
     RecognizeFaces,
     ScanNudity,
@@ -31,8 +36,9 @@ from Views.PAnalizerView_ui import Ui_MainWindow
 # ──────────────────────────────────────────────
 
 class ScanWorker(QThread):
-    progress = pyqtSignal(int)              # 0-100
-    result_found = pyqtSignal(str)          # path of a matching file
+    progress = pyqtSignal(int, int)         # (files processed, total files)
+    result_found = pyqtSignal(str, float, str)  # (matching file, score, copied to or "")
+    log_created = pyqtSignal(str)           # path of the session log
     status_message = pyqtSignal(str)
     failed = pyqtSignal(str)                # error that stopped the scan
     scan_finished = pyqtSignal(int, int)    # (files analyzed, matches)
@@ -46,6 +52,7 @@ class ScanWorker(QThread):
         self._stop = False
         self._analyzed = 0
         self._matches = 0
+        self.stopped = False
 
     def stop(self):
         self._stop = True
@@ -58,6 +65,10 @@ class ScanWorker(QThread):
 
     def analyze(self, image):
         """Return (is_match, details) for a BGR image."""
+        raise NotImplementedError
+
+    def score(self, details):
+        """Return the score shown for a match (higher means stronger)."""
         raise NotImplementedError
 
     def run(self):
@@ -77,15 +88,19 @@ class ScanWorker(QThread):
             return
 
         log_path = CreateSessionLog(self.result_path, self.scan_type, self.settings())
+        self.log_created.emit(log_path)
+        self.progress.emit(0, total)
         for i, file_path in enumerate(image_files):
             if self._stop:
+                self.stopped = True
                 break
-            self.status_message.emit(f"Analyzing ({i + 1}/{total}): {os.path.basename(file_path)}")
+            self.status_message.emit(f"Analyzing: {os.path.basename(file_path)}")
             AppendToLog(log_path, self._process(file_path))
             self._analyzed += 1
-            self.progress.emit(int((i + 1) / total * 100))
+            self.progress.emit(i + 1, total)
 
-        stopped = " (stopped)" if self._stop else ""
+        AppendToLog(log_path, MakeSessionEnd(total, self._analyzed, self._matches, self.stopped))
+        stopped = " (stopped)" if self.stopped else ""
         self.status_message.emit(
             f"Done{stopped}. {self._matches} match(es) in {self._analyzed} of {total} image(s). Log: {log_path}"
         )
@@ -101,11 +116,11 @@ class ScanWorker(QThread):
         copied_to, error = None, None
         if is_match:
             self._matches += 1
-            self.result_found.emit(file_path)
             try:
                 copied_to = CopyToResults(file_path, self.result_path)
             except OSError as e:
                 error = f"copy failed: {e}"
+            self.result_found.emit(file_path, self.score(details), copied_to or "")
         return MakeLogEntry(file_path, is_match, details, copied_to=copied_to, error=error)
 
 
@@ -127,6 +142,9 @@ class NudityWorker(ScanWorker):
     def analyze(self, image):
         is_explicit, detections = ScanNudity(image, threshold=self.threshold, detector=self.detector)
         return is_explicit, {"detections": detections}
+
+    def score(self, details):
+        return max((d["score"] for d in details["detections"] if d["class"] in EXPLICIT_CLASSES), default=0.0)
 
 
 class FaceWorker(ScanWorker):
@@ -156,7 +174,7 @@ class FaceWorker(ScanWorker):
         self.reference_features, self.reference_files = BuildFaceEncodings(self.learn_path, self.models)
         if not self.reference_features:
             raise RuntimeError(
-                "No face was detected in the photos of the learning directory. "
+                "No face was detected in the reference photos. "
                 "Add clear photos of the person's face and try again."
             )
         self.status_message.emit(f"{len(self.reference_features)} reference face(s) loaded. Searching...")
@@ -165,57 +183,142 @@ class FaceWorker(ScanWorker):
         found, faces = RecognizeFaces(image, self.reference_features, self.models, threshold=self.threshold)
         return found, {"faces": faces}
 
+    def score(self, details):
+        return max((f["similarity"] for f in details["faces"]), default=0.0)
+
 
 # ──────────────────────────────────────────────
 # Main window
 # ──────────────────────────────────────────────
 
+SOURCE_URL = "https://github.com/AaronSoria/PAnalizer"
+
+ABOUT_HTML = f"""
+<h3>PAnalizer {__version__}</h3>
+<p>Forensic image triage: nudity screening and person-of-interest search.</p>
+<p>Copyright (C) 2019-2026 Aaron Soria<br>
+Source code: <a href="{SOURCE_URL}">{SOURCE_URL}</a></p>
+<p>This program is free software: you can redistribute it and/or modify it under the terms of the
+GNU Affero General Public License as published by the Free Software Foundation, either version 3
+of the License, or (at your option) any later version.</p>
+<p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+<a href="https://www.gnu.org/licenses/agpl-3.0.html">GNU Affero General Public License</a> for more
+details.</p>
+<p><b>Third-party components:</b> NudeNet (AGPL-3.0), YuNet face detection model (MIT),
+SFace face recognition model (Apache-2.0), OpenCV (Apache-2.0), ONNX Runtime (MIT),
+Qt / PyQt5 (GPL-3.0).</p>
+<p><b>Responsible use:</b> use PAnalizer only on data you are legally authorized to examine.
+Automated results are leads, not conclusions; have every match reviewed by a qualified person.</p>
+"""
+
+STYLE_SHEET = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Views", "style.qss")
+
+
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, *args, **kwargs):
         QtWidgets.QMainWindow.__init__(self, *args, **kwargs)
         self.setupUi(self)
-        self.setWindowTitle("PAnalizer")
+        with open(STYLE_SHEET, encoding="utf-8") as f:
+            self.setStyleSheet(f.read())
         self._worker = None
+        self._log_path = None
+        self._search_root = ""
+        self._failed = False
+
+        header = self.ResultsTable.horizontalHeader()
+        header.setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        header.setSectionResizeMode(0, QHeaderView.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.Stretch)
+        self.ResultsTable.horizontalHeaderItem(1).setToolTip(
+            "Nudity screening: highest explicit-content detection score (0-1).\n"
+            "Face search: highest similarity to the reference faces (cosine, -1 to 1)."
+        )
 
         self.SearchDirectoryButton.clicked.connect(self.OnSearchDirectoryButtonClick)
         self.SearchLearnButton.clicked.connect(self.OnSearchLearnButtonClick)
         self.SearchResultButton.clicked.connect(self.OnLearnResultButtonClick)
         self.FaceSearchButton.clicked.connect(self.OnFaceSearchButtonClick)
         self.NudeSearchButton.clicked.connect(self.OnNudeSearchButtonClick)
+        self.StopButton.clicked.connect(self.OnStopButtonClick)
+        self.OpenResultsButton.clicked.connect(self.OpenResultsFolder)
+        self.OpenLogButton.clicked.connect(self.OpenLog)
+        self.actionOpenResults.triggered.connect(self.OpenResultsFolder)
+        self.actionOpenLog.triggered.connect(self.OpenLog)
+        self.actionQuit.triggered.connect(self.close)
+        self.actionAbout.triggered.connect(self.ShowAbout)
+        self.actionForgetFolders.triggered.connect(self.ForgetFolders)
+        self.DirectoryResult.textChanged.connect(self._update_open_buttons)
+        self._restore_folders()
+
+    # ── Remembered folders ──
+
+    FOLDER_KEYS = (("folders/search", "DirectorySearch"), ("folders/learn", "DirectoryLearn"),
+                   ("folders/results", "DirectoryResult"))
+
+    @staticmethod
+    def _settings():
+        # Plain INI file (not the Windows registry) so examiners can inspect or delete it:
+        # %APPDATA%\PAnalizer\PAnalizer.ini on Windows, ~/.config/PAnalizer/PAnalizer.ini on Linux.
+        return QSettings(QSettings.IniFormat, QSettings.UserScope, "PAnalizer", "PAnalizer")
+
+    def _restore_folders(self):
+        settings = self._settings()
+        for key, name in self.FOLDER_KEYS:
+            path = settings.value(key, "", type=str)
+            if path and os.path.isdir(path):
+                getattr(self, name).setText(path)
+                getattr(self, name).setCursorPosition(0)
+
+    def _remember_folders(self, paths):
+        settings = self._settings()
+        for (key, _), value in zip(self.FOLDER_KEYS, (paths["search"], paths["learn"], paths["result"])):
+            if value:
+                settings.setValue(key, value)
+            else:
+                settings.remove(key)
+        settings.sync()
+
+    def ForgetFolders(self):
+        settings = self._settings()
+        settings.remove("folders")
+        settings.sync()
+        self.statusbar.showMessage("Recent folders forgotten.")
 
     # ── Folder selection ──
 
-    def OnSearchDirectoryButtonClick(self):
-        d = QFileDialog.getExistingDirectory(self, "Directory for searching")
+    def _browse(self, line_edit, caption):
+        d = QFileDialog.getExistingDirectory(self, caption, line_edit.text().strip())
         if d:
-            self.DirectorySearch.setPlainText(d)
+            line_edit.setText(os.path.normpath(d))
+            line_edit.setCursorPosition(0)
+
+    def OnSearchDirectoryButtonClick(self):
+        self._browse(self.DirectorySearch, "Images to analyze")
 
     def OnSearchLearnButtonClick(self):
-        d = QFileDialog.getExistingDirectory(self, "Directory for learning (photos of the person)")
-        if d:
-            self.DirectoryLearn.setPlainText(d)
+        self._browse(self.DirectoryLearn, "Reference photos of the person of interest")
 
     def OnLearnResultButtonClick(self):
-        d = QFileDialog.getExistingDirectory(self, "Directory for results")
-        if d:
-            self.DirectoryResult.setPlainText(d)
+        self._browse(self.DirectoryResult, "Results folder")
 
     # ── Validation ──
 
     def _validate_paths(self, require_learn=False):
-        search = self.DirectorySearch.toPlainText().strip()
-        result = self.DirectoryResult.toPlainText().strip()
-        learn = self.DirectoryLearn.toPlainText().strip()
+        search = self.DirectorySearch.text().strip()
+        result = self.DirectoryResult.text().strip()
+        learn = self.DirectoryLearn.text().strip()
 
         error = None
         if not os.path.isdir(search):
-            error = "The directory for searching is not valid."
+            error = "Choose an existing folder of images to analyze."
         elif not os.path.isdir(result):
-            error = "The directory for results is not valid."
+            error = "Choose an existing results folder."
         elif os.path.normcase(os.path.abspath(search)) == os.path.normcase(os.path.abspath(result)):
-            error = "The directories for searching and results must be different."
+            error = "The folder to analyze and the results folder must be different."
         elif require_learn and not os.path.isdir(learn):
-            error = "The directory for learning is not valid."
+            error = "Choose an existing folder of reference photos."
         if error:
             QMessageBox.warning(self, "PAnalizer", error)
             return None
@@ -225,41 +328,134 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def _set_ui_running(self, running):
         for widget in (self.FaceSearchButton, self.NudeSearchButton, self.SearchDirectoryButton,
-                       self.SearchLearnButton, self.SearchResultButton):
+                       self.SearchLearnButton, self.SearchResultButton, self.DirectorySearch,
+                       self.DirectoryLearn, self.DirectoryResult):
             widget.setEnabled(not running)
+        self.StopButton.setEnabled(running)
 
     def _start(self, worker, message):
-        self.ShowResultText.clear()
-        self.progressBar.setValue(0)
+        self.ResultsTable.setRowCount(0)
+        self.progressBar.setRange(0, 0)  # busy indicator until the image count is known
+        self.progressLabel.setText("Preparing…")
+        self._search_root = worker.search_path
+        self._log_path = None
+        self._failed = False
+        self._update_open_buttons()
         self._set_ui_running(True)
         self.statusbar.showMessage(message)
         self._worker = worker
-        worker.progress.connect(self.progressBar.setValue)
-        worker.result_found.connect(self.ShowResultText.appendPlainText)
+        worker.progress.connect(self._on_progress)
+        worker.result_found.connect(self._on_result_found)
+        worker.log_created.connect(self._on_log_created)
         worker.status_message.connect(self.statusbar.showMessage)
         worker.failed.connect(self._on_failed)
         worker.scan_finished.connect(self._on_finished)
         worker.start()
 
+    def _matches_text(self):
+        n = self.ResultsTable.rowCount()
+        return f"{n} match" if n == 1 else f"{n} matches"
+
+    def _on_progress(self, done, total):
+        self.progressBar.setRange(0, max(total, 1))
+        self.progressBar.setValue(done)
+        self.progressLabel.setText(f"{done:,} / {total:,} images · {self._matches_text()}")
+
+    def _on_result_found(self, path, score, copied_to):
+        row = self.ResultsTable.rowCount()
+        self.ResultsTable.insertRow(row)
+        try:
+            shown = os.path.relpath(path, self._search_root)
+        except ValueError:
+            shown = path
+        cells = (
+            (shown, path),
+            (f"{score:.2f}", None),
+            (os.path.basename(copied_to) if copied_to else "copy failed", copied_to or "See the log for details."),
+        )
+        for column, (text, tooltip) in enumerate(cells):
+            item = QTableWidgetItem(text)
+            if tooltip:
+                item.setToolTip(tooltip)
+            if column == 1:
+                item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            self.ResultsTable.setItem(row, column, item)
+
+    def _on_log_created(self, log_path):
+        self._log_path = log_path
+        self._update_open_buttons()
+
     def _on_failed(self, message):
+        self._failed = True
         self.statusbar.showMessage("Scan stopped: " + message.splitlines()[0])
         QMessageBox.warning(self, "PAnalizer", message)
 
     def _on_finished(self, analyzed, matches):
+        worker = self._worker
         self._set_ui_running(False)
         self._worker = None
+        if self.progressBar.maximum() == 0:
+            self.progressBar.setRange(0, 1)
+        if self._failed:
+            state = "Did not complete"
+        elif worker is not None and worker.stopped:
+            state = "Stopped"
+        else:
+            state = "Finished"
+        self.progressLabel.setText(f"{state} · {analyzed:,} images · {self._matches_text()}")
+
+    def OnStopButtonClick(self):
+        if self._worker is not None:
+            self._worker.stop()
+            self.StopButton.setEnabled(False)
+            self.progressLabel.setText("Stopping after the current image…")
+
+    # ── Results ──
+
+    def _update_open_buttons(self):
+        has_results = os.path.isdir(self.DirectoryResult.text().strip())
+        has_log = bool(self._log_path) and os.path.isfile(self._log_path)
+        for widget in (self.OpenResultsButton, self.actionOpenResults):
+            widget.setEnabled(has_results)
+        for widget in (self.OpenLogButton, self.actionOpenLog):
+            widget.setEnabled(has_log)
+
+    def _open(self, path):
+        if not QDesktopServices.openUrl(QUrl.fromLocalFile(path)):
+            QMessageBox.information(self, "PAnalizer", f"Could not open:\n{path}")
+
+    def OpenResultsFolder(self):
+        path = self.DirectoryResult.text().strip()
+        if os.path.isdir(path):
+            self._open(path)
+
+    def OpenLog(self):
+        if self._log_path:
+            self._open(self._log_path)
+
+    # ── About ──
+
+    def ShowAbout(self):
+        box = QMessageBox(self)
+        box.setWindowTitle("About PAnalizer")
+        box.setTextFormat(Qt.RichText)
+        box.setText(ABOUT_HTML)
+        box.findChild(QLabel, "qt_msgbox_label").setOpenExternalLinks(True)
+        box.exec_()
 
     # ── Actions ──
 
     def OnNudeSearchButtonClick(self):
         paths = self._validate_paths()
         if paths:
-            self._start(NudityWorker(paths["search"], paths["result"]), "Starting nudity screening...")
+            self._remember_folders(paths)
+            self._start(NudityWorker(paths["search"], paths["result"]), "Starting nudity screening…")
 
     def OnFaceSearchButtonClick(self):
         paths = self._validate_paths(require_learn=True)
         if paths:
-            self._start(FaceWorker(paths["search"], paths["learn"], paths["result"]), "Starting face search...")
+            self._remember_folders(paths)
+            self._start(FaceWorker(paths["search"], paths["learn"], paths["result"]), "Starting face search…")
 
     def closeEvent(self, event):
         if self._worker and self._worker.isRunning():
