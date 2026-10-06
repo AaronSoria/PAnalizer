@@ -36,4 +36,4 @@ Both run in CI on Linux and Windows for Python 3.11–3.13.
   Edit the `.ui` file in Qt Designer and regenerate it with
   `pyuic5 Views/PAnalizerView.ui -o Views/PAnalizerView_ui.py`.
 - By contributing you agree that your contributions are licensed under the
-  [MIT License](LICENSE).
+  [GNU Affero General Public License v3.0 or later](LICENSE).

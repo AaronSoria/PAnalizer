@@ -1,8 +1,9 @@
-# Tested on Python 3.11 and 3.13 (Windows), 2026-10.
-# Install ONLY opencv-contrib-python: it already contains everything in
-# opencv-python (plus cv2.face, needed for face search). Installing both
-# packages side by side causes conflicts.
-imutils==0.5.4
+# Tested on Python 3.11 (Windows), 2026-10.
+# opencv-python-headless is the only OpenCV package: nudenet depends on it, and
+# it does not bundle Qt, so it cannot clash with PyQt5. Do not also install
+# opencv-python or opencv-contrib-python in the same environment.
+nudenet==3.4.2
 numpy==2.4.6
-opencv-contrib-python==4.14.0.94
+onnxruntime==1.30.0
+opencv-python-headless==4.14.0.94
 PyQt5==5.15.11

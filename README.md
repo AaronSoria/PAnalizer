@@ -1,7 +1,7 @@
 # PAnalizer
 
 [![CI](https://github.com/AaronSoria/PAnalizer/actions/workflows/ci.yml/badge.svg)](https://github.com/AaronSoria/PAnalizer/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: AGPL v3+](https://img.shields.io/badge/License-AGPL_v3%2B-blue.svg)](LICENSE)
 
 PAnalizer is a desktop digital-forensics tool for triaging large image sets.
 It helps an investigator:
@@ -11,37 +11,51 @@ It helps an investigator:
 - **Search for a person of interest** across a folder of images, given a few
   reference photos of that person.
 
-Matching images are listed in the application and copied to a results folder.
-PAnalizer is a triage aid: every result must be reviewed by a person.
+Matching images are listed in the application, copied to a results folder,
+and recorded in a session log. PAnalizer is a triage aid: every result must be
+reviewed by a person.
 
 ## Features
 
-- **Nudity screening (heuristic).** For each image, OpenCV's HOG people
-  detector locates human figures, `grabCut` separates each figure from the
-  background, and the image is flagged when the share of skin-colored pixels
-  (HSV range) in a figure exceeds 1%. No machine-learning nudity model is used.
-- **Person-of-interest search.** Faces in the reference photos are found with
-  OpenCV Haar cascades (frontal and profile) and used to train an LBPH face
-  recognizer. Faces found in the searched images are compared against it and
-  reported as a match when the LBPH distance is below 50.
-- **Recursive search** of the selected folder and its subfolders. Any image
-  format OpenCV can read is processed; other files are skipped.
-- **Runs fully offline.** No images or results leave the machine.
-- Simple Qt (PyQt5) graphical interface on Windows and Linux.
+- **Nudity screening** with the [NudeNet](https://github.com/notAI-tech/NudeNet)
+  3.x detector. An image is flagged when NudeNet detects exposed anus,
+  buttocks, female breast, or female or male genitalia with a score of at
+  least 0.6. All detections (class, score, box) are written to the log.
+- **Person-of-interest search** with OpenCV's
+  [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
+  face detector and
+  [SFace](https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface)
+  face recognizer. Every face in a searched image is compared with every
+  reference face; the image is a match when any pair has a cosine similarity
+  of at least 0.363 (the threshold used in OpenCV's face recognition sample).
+- **Session log** in [JSON Lines](https://jsonlines.org/) format, one per
+  scan, saved in the results folder: scan settings, then one entry per
+  analyzed file with the result, detections or face similarities, where it was
+  copied, and any error.
+- **Copies never overwrite each other.** Files with the same name get a
+  `_1`, `_2`, … suffix, and copies keep the original file timestamps.
+- **Responsive interface.** Scans run in the background with a progress bar
+  and status messages.
+- **Recursive search** of the selected folder and its subfolders for
+  `.jpg`, `.jpeg`, `.png`, `.bmp`, `.tif`, `.tiff` and `.webp` files. Paths
+  with non-ASCII characters are supported.
+- **Runs fully offline** once installed. No images or results leave the
+  machine. No GPU is needed.
 
 ## Requirements
 
 - Python **3.11 or newer** (tested on 3.11 and 3.13)
 - Windows or Linux with a graphical desktop
+- Windows only: the current
+  [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist)
+  (2015–2022, x64), required by ONNX Runtime
 - Python packages (pinned in [`requirements.txt`](requirements.txt)):
-  `opencv-contrib-python`, `numpy`, `imutils`, `PyQt5`
-
-No GPU and no model downloads are needed; the Haar cascade files ship with the
-repository in `Libs/`.
+  `nudenet`, `onnxruntime`, `opencv-python-headless`, `numpy`, `PyQt5`
+- About 40 MB of face models, downloaded once during installation (see below)
 
 ## Installation
 
-Using a virtual environment is recommended. No administrator rights are needed.
+Use a **new** virtual environment. No administrator rights are needed.
 
 ### Linux
 
@@ -50,10 +64,10 @@ git clone https://github.com/AaronSoria/PAnalizer.git
 cd PAnalizer
 python3 -m venv .venv
 . .venv/bin/activate
-python install_linux.py        # same as: pip install -r requirements.txt
+python install_linux.py
 ```
 
-On minimal installations OpenCV and Qt may need extra system libraries. On
+On minimal installations Qt may need extra system libraries. On
 Debian/Ubuntu:
 
 ```bash
@@ -70,8 +84,23 @@ py -3 -m venv .venv
 python install_windows.py
 ```
 
-> Install **only** `opencv-contrib-python`. Having `opencv-python` installed
-> in the same environment conflicts with it; uninstall it if present.
+### What the installer does
+
+1. `pip install -r requirements.txt`
+2. `python download_models.py`: downloads the YuNet and SFace models from the
+   [OpenCV Model Zoo](https://github.com/opencv/opencv_zoo) into `models/` and
+   checks each file against a pinned SHA-256 hash. The NudeNet model is
+   included in the `nudenet` package.
+
+**Offline machines:** on a connected machine, download the two files listed in
+`download_models.py`, copy them into `models/` on the offline machine, and run
+`python download_models.py` there to verify them.
+
+### Upgrading from v1
+
+v2 replaces `opencv-contrib-python` with `opencv-python-headless`. The two
+conflict if installed together, so create a new virtual environment instead of
+upgrading the old one.
 
 ## Usage
 
@@ -86,52 +115,54 @@ pick a folder.
 |---|---|---|
 | Directory for searching | both | Images to analyze (subfolders included) |
 | Directory for learning | Face Search | Reference photos of the person of interest |
-| Directory for results | both | Where matching images are copied |
+| Directory for results | both | Where matching images and the session log are saved |
 
 - **Nude Search**: fill in the search and results folders, then click
   **Nude Search**.
 - **Face Search**: also fill in the learning folder. Use several clear photos
-  where the person's face is visible; only the first face detected in each
-  reference photo is used, and subfolders of the learning folder are not read.
-  If no face is detected in any reference photo, a warning is shown and the
-  search does not start. An image is a match if any face in it is close
-  enough to the reference faces.
+  where the person's face is visible. From each reference photo, the face
+  detected with the highest confidence is used; subfolders of the learning
+  folder are not read. If no face is detected in any reference photo, a
+  warning is shown and the search does not start.
 
 The search and results folders must be different. Paths of matching images
-appear in the text area at the bottom of the window.
+appear in the text area at the bottom of the window, and the status bar shows
+progress and the log file location when the scan ends. Closing the window
+during a scan stops it after the current image.
 
 ## Project structure
 
 ```
-PAnalizer.py                    Entry point: starts the Qt application
-ViewModels/PAnalizerViewModel.py  Main window logic: folder selection, scanning, copying results
-Views/PAnalizerView.ui          Qt Designer layout
-Views/PAnalizerView_ui.py       Python code generated from the .ui file (pyuic5)
-Libs/ImageScanner.py            Detection: body/skin heuristic, face detection and recognition
-Libs/haarcascade_*.xml          OpenCV Haar cascade models for face detection
-install_linux.py, install_windows.py  Dependency installers
-tests/                          Smoke tests (no GPU or images required)
+PAnalizer.py                      Entry point: starts the Qt application
+ViewModels/PAnalizerViewModel.py  Main window and background scan workers
+Views/PAnalizerView.ui            Qt Designer layout
+Views/PAnalizerView_ui.py         Python code generated from the .ui file (pyuic5)
+Libs/ImageScanner.py              Nudity detection, face detection/recognition, copies, log
+download_models.py                Downloads and verifies the face models
+install_linux.py, install_windows.py  Install dependencies and models
+models/                           Face models (downloaded, not in git)
+tests/                            Unit and smoke tests (no GPU or real photos required)
 ```
 
 ## Limitations
 
 Read these before relying on any result.
 
-- **Nudity screening is a color heuristic, not a trained classifier.** Expect
-  many false positives (any figure with a little visible skin, skin-toned
-  backgrounds) and false negatives (figures the people detector misses,
-  lighting or skin tones outside the fixed HSV range). Accuracy has not been
-  measured; validate on your own data.
-- **Face recognition uses LBPH**, a classical method that is sensitive to
-  pose, lighting, resolution and occlusion. The match threshold (50) is fixed
-  in the code.
-- **The interface is unresponsive during a scan**, and the progress bar does
-  not advance. Large folders can take a long time.
-- **Results are copied into a single flat folder**: files with the same name
-  from different subfolders overwrite each other. Copies do not preserve file
-  timestamps, and no hashes or logs are produced, so PAnalizer does not by
-  itself provide evidence integrity or chain of custody. Work on a forensic
-  copy of the data, never on the original evidence.
+- **Accuracy has not been measured** on any dataset for this tool. Both
+  models produce false positives and false negatives; validate them on data
+  representative of your cases.
+- **Fixed thresholds.** The nudity score threshold (0.6), the face similarity
+  threshold (0.363) and the face detection confidence (0.7) are set in
+  `Libs/ImageScanner.py` and cannot be changed from the interface.
+- **Small details can be missed.** NudeNet analyzes images at 320 pixels, and
+  face detection runs on images reduced to at most 1280 pixels on their longest
+  side, so small or distant people and faces may not be detected.
+- **Face recognition is sensitive** to pose, lighting, resolution, occlusion
+  and age differences, and face recognition accuracy can differ between
+  demographic groups.
+- **Evidence integrity.** Copies keep file timestamps and the log records
+  every result, but PAnalizer does not compute file hashes or provide chain of
+  custody. Work on a forensic copy of the data, never on the original evidence.
 
 ## Responsible use
 
@@ -141,7 +172,8 @@ carried out by authorized people.
 
 - Use it only on data you are legally authorized to examine, and follow the
   laws and procedures of your jurisdiction, including privacy and
-  data-protection law.
+  data-protection law. Face recognition is regulated or restricted in some
+  jurisdictions.
 - Do not use it to surveil, identify or track people without a legal basis.
 - Automated results are leads, not conclusions. Have every match confirmed
   by a qualified person before acting on it.
@@ -151,7 +183,22 @@ carried out by authorized people.
 
 ## License
 
-[MIT](LICENSE) © 2019 Aaron Soria
+PAnalizer is free software, licensed under the
+[GNU Affero General Public License v3.0 or later](LICENSE).
+Copyright (C) 2019-2026 Aaron Soria.
+
+Versions up to and including v1.0.0 were released under the MIT License.
+
+Third-party components:
+
+| Component | Used for | License |
+|---|---|---|
+| [NudeNet](https://github.com/notAI-tech/NudeNet) (code and bundled model) | Nudity detection | AGPL-3.0 |
+| [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet) model | Face detection | MIT |
+| [SFace](https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface) model | Face recognition | Apache-2.0 |
+| [OpenCV](https://opencv.org/) | Image processing, face models runtime | Apache-2.0 |
+| [ONNX Runtime](https://onnxruntime.ai/) | NudeNet model runtime | MIT |
+| [PyQt5](https://www.riverbankcomputing.com/software/pyqt/) | User interface | GPL-3.0 |
 
 ## Contributing
 

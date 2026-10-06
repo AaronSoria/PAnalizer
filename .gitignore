@@ -19,3 +19,6 @@ env/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Downloaded ONNX models (see download_models.py)
+models/
