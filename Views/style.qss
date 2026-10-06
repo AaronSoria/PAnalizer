@@ -17,13 +17,33 @@ QLabel#titleLabel {
 
 QLabel#subtitleLabel,
 QLabel#progressLabel,
-QLabel#noticeLabel {
+QLabel#noticeLabel,
+QLabel#thresholdsLabel {
     color: #5b636e;
 }
 
-QLabel#noticeLabel {
+QLabel#noticeLabel,
+QLabel#thresholdsLabel {
     font-size: 9pt;
 }
+
+QLabel#thresholdsLabel[modified="true"] {
+    color: #8a5a00;
+}
+
+QDialog QLabel {
+    font-weight: normal;
+}
+
+QLabel#nudityHelp,
+QLabel#faceHelp,
+QLabel#detectionHelp,
+QLabel#sessionNote {
+    color: #5b636e;
+    font-size: 9pt;
+    margin-bottom: 8px;
+}
+
 
 QGroupBox {
     background: #ffffff;

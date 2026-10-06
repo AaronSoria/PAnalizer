@@ -32,8 +32,8 @@ Both run in CI on Linux and Windows for Python 3.11–3.13.
 
 - Keep each pull request focused on one change and describe what it does and
   how you tested it.
-- `Views/PAnalizerView_ui.py` is generated from `Views/PAnalizerView.ui`.
-  Edit the `.ui` file in Qt Designer and regenerate it with
+- `Views/*_ui.py` files are generated from the `Views/*.ui` forms. Edit the
+  `.ui` file in Qt Designer and regenerate it, for example
   `pyuic5 Views/PAnalizerView.ui -o Views/PAnalizerView_ui.py`.
 - Colors and spacing live in `Views/style.qss`. Keep the interface sober:
   neutral colors, one accent, and no thumbnails of analyzed images.

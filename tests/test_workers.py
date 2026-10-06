@@ -76,7 +76,7 @@ def test_face_worker_reports_missing_models_and_still_finishes(tmp_path, monkeyp
     for d in ("search", "learn", "results"):
         (tmp_path / d).mkdir()
 
-    def missing():
+    def missing(**kwargs):
         raise ImageScanner.ModelNotFoundError("Face model not found\nRun 'python download_models.py'")
 
     monkeypatch.setattr(PAnalizerViewModel, "FaceModels", missing)
@@ -92,7 +92,7 @@ def test_face_worker_without_reference_faces_fails_cleanly(tmp_path, monkeypatch
     for d in ("search", "learn", "results"):
         (tmp_path / d).mkdir()
     _image(tmp_path / "search" / "x.png", 1)
-    monkeypatch.setattr(PAnalizerViewModel, "FaceModels", lambda: object())
+    monkeypatch.setattr(PAnalizerViewModel, "FaceModels", lambda **kwargs: object())
     monkeypatch.setattr(PAnalizerViewModel, "BuildFaceEncodings", lambda path, models: ([], []))
 
     worker = PAnalizerViewModel.FaceWorker(*(str(tmp_path / d) for d in ("search", "learn", "results")))
@@ -109,7 +109,7 @@ def test_face_worker_end_to_end(tmp_path, monkeypatch):
     results.mkdir()
     _image(search / "match.png", 1)
     _image(search / "other.png", 2)
-    monkeypatch.setattr(PAnalizerViewModel, "FaceModels", lambda: object())
+    monkeypatch.setattr(PAnalizerViewModel, "FaceModels", lambda **kwargs: object())
     monkeypatch.setattr(PAnalizerViewModel, "BuildFaceEncodings", lambda path, models: (["ref"], ["r.jpg"]))
 
     def recognize(image, refs, models, threshold):
@@ -162,3 +162,39 @@ def test_face_worker_score_is_best_similarity():
     worker = PAnalizerViewModel.FaceWorker("s", "l", "r")
     assert worker.score({"faces": [{"similarity": 0.2}, {"similarity": 0.7}]}) == 0.7
     assert worker.score({"faces": []}) == 0.0
+
+
+def test_face_worker_uses_and_logs_custom_thresholds(tmp_path, monkeypatch):
+    search, results = tmp_path / "search", tmp_path / "results"
+    results.mkdir()
+    _image(search / "x.png", 1)
+    created = []
+    monkeypatch.setattr(PAnalizerViewModel, "FaceModels", lambda **kwargs: created.append(kwargs) or object())
+    monkeypatch.setattr(PAnalizerViewModel, "BuildFaceEncodings", lambda path, models: (["ref"], ["r.jpg"]))
+    used = []
+
+    def recognize(image, refs, models, threshold):
+        used.append(threshold)
+        return False, []
+
+    monkeypatch.setattr(PAnalizerViewModel, "RecognizeFaces", recognize)
+    worker = PAnalizerViewModel.FaceWorker(str(search), str(tmp_path), str(results), threshold=0.5,
+                                           detection_score=0.6)
+    worker.run()
+
+    assert created == [{"score_threshold": 0.6}] and used == [0.5]
+    settings = _log_lines(results)[0]["settings"]
+    assert (settings["threshold_cosine"], settings["detection_confidence"]) == (0.5, 0.6)
+    assert settings["default_thresholds"] is False
+
+
+def test_default_thresholds_are_flagged_in_log(tmp_path, monkeypatch):
+    search, results = tmp_path / "search", tmp_path / "results"
+    results.mkdir()
+    _image(search / "x.png", 1)
+    monkeypatch.setattr(PAnalizerViewModel, "LoadNudityDetector", ValueDetector)
+    for threshold, expected in ((0.6, True), (0.8, False)):
+        for f in results.iterdir():
+            f.unlink()
+        PAnalizerViewModel.NudityWorker(str(search), str(results), threshold=threshold).run()
+        assert _log_lines(results)[0]["settings"]["default_thresholds"] is expected

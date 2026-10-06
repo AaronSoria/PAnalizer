@@ -6,7 +6,15 @@ import os
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import QSettings, Qt, QThread, QUrl, pyqtSignal
 from PyQt5.QtGui import QDesktopServices
-from PyQt5.QtWidgets import QFileDialog, QHeaderView, QLabel, QMessageBox, QTableWidgetItem
+from PyQt5.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QTableWidgetItem,
+)
 
 from Libs import __version__
 
@@ -29,6 +37,7 @@ from Libs.ImageScanner import (
     ScanNudity,
 )
 from Views.PAnalizerView_ui import Ui_MainWindow
+from Views.ThresholdsDialog_ui import Ui_ThresholdsDialog
 
 
 # ──────────────────────────────────────────────
@@ -133,7 +142,12 @@ class NudityWorker(ScanWorker):
         self.detector = None
 
     def settings(self):
-        return {**super().settings(), "model": "NudeNet 3.x NudeDetector", "threshold": self.threshold}
+        return {
+            **super().settings(),
+            "model": "NudeNet 3.x NudeDetector",
+            "threshold": self.threshold,
+            "default_thresholds": self.threshold == DEFAULT_NUDITY_THRESHOLD,
+        }
 
     def prepare(self):
         self.status_message.emit("Loading nudity detection model...")
@@ -150,10 +164,12 @@ class NudityWorker(ScanWorker):
 class FaceWorker(ScanWorker):
     scan_type = "face"
 
-    def __init__(self, search_path, learn_path, result_path, threshold=DEFAULT_FACE_THRESHOLD):
+    def __init__(self, search_path, learn_path, result_path, threshold=DEFAULT_FACE_THRESHOLD,
+                 detection_score=DEFAULT_DETECTION_SCORE):
         super().__init__(search_path, result_path)
         self.learn_path = learn_path
         self.threshold = threshold
+        self.detection_score = detection_score
         self.models = None
         self.reference_features = []
         self.reference_files = []
@@ -163,14 +179,16 @@ class FaceWorker(ScanWorker):
             **super().settings(),
             "model": "OpenCV YuNet 2023mar + SFace 2021dec",
             "threshold_cosine": self.threshold,
-            "detection_confidence": DEFAULT_DETECTION_SCORE,
+            "detection_confidence": self.detection_score,
+            "default_thresholds": (self.threshold, self.detection_score)
+            == (DEFAULT_FACE_THRESHOLD, DEFAULT_DETECTION_SCORE),
             "reference_directory": self.learn_path,
             "reference_files": self.reference_files,
         }
 
     def prepare(self):
         self.status_message.emit("Loading face models and reference photos...")
-        self.models = FaceModels()
+        self.models = FaceModels(score_threshold=self.detection_score)
         self.reference_features, self.reference_files = BuildFaceEncodings(self.learn_path, self.models)
         if not self.reference_features:
             raise RuntimeError(
@@ -212,6 +230,36 @@ Qt / PyQt5 (GPL-3.0).</p>
 Automated results are leads, not conclusions; have every match reviewed by a qualified person.</p>
 """
 
+DEFAULT_THRESHOLDS = {
+    "nudity": DEFAULT_NUDITY_THRESHOLD,
+    "face": DEFAULT_FACE_THRESHOLD,
+    "detection": DEFAULT_DETECTION_SCORE,
+}
+
+
+class ThresholdsDialog(QDialog, Ui_ThresholdsDialog):
+    """Edit the detection thresholds for the current session."""
+
+    def __init__(self, thresholds, parent=None):
+        QDialog.__init__(self, parent)
+        self.setupUi(self)
+        self.buttonBox.button(QDialogButtonBox.RestoreDefaults).clicked.connect(
+            lambda: self.SetValues(DEFAULT_THRESHOLDS))
+        self.SetValues(thresholds)
+
+    def SetValues(self, thresholds):
+        self.NudityThreshold.setValue(thresholds["nudity"])
+        self.FaceThreshold.setValue(thresholds["face"])
+        self.DetectionScore.setValue(thresholds["detection"])
+
+    def Values(self):
+        return {
+            "nudity": round(self.NudityThreshold.value(), 2),
+            "face": round(self.FaceThreshold.value(), 3),
+            "detection": round(self.DetectionScore.value(), 2),
+        }
+
+
 STYLE_SHEET = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Views", "style.qss")
 
 
@@ -225,6 +273,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._log_path = None
         self._search_root = ""
         self._failed = False
+        self.thresholds = dict(DEFAULT_THRESHOLDS)  # session only: always start with the defaults
+        self._update_thresholds_label()
 
         header = self.ResultsTable.horizontalHeader()
         header.setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
@@ -248,6 +298,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.actionOpenLog.triggered.connect(self.OpenLog)
         self.actionQuit.triggered.connect(self.close)
         self.actionAbout.triggered.connect(self.ShowAbout)
+        self.ThresholdsButton.clicked.connect(self.EditThresholds)
+        self.actionThresholds.triggered.connect(self.EditThresholds)
         self.actionForgetFolders.triggered.connect(self.ForgetFolders)
         self.DirectoryResult.textChanged.connect(self._update_open_buttons)
         self._restore_folders()
@@ -332,6 +384,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                        self.DirectoryLearn, self.DirectoryResult):
             widget.setEnabled(not running)
         self.StopButton.setEnabled(running)
+        self.ThresholdsButton.setEnabled(not running)
+        self.actionThresholds.setEnabled(not running)
 
     def _start(self, worker, message):
         self.ResultsTable.setRowCount(0)
@@ -433,6 +487,25 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if self._log_path:
             self._open(self._log_path)
 
+    # ── Thresholds ──
+
+    def _update_thresholds_label(self):
+        t = self.thresholds
+        modified = t != DEFAULT_THRESHOLDS
+        self.thresholdsLabel.setText(
+            f"Thresholds: nudity ≥ {t['nudity']:.2f} · face similarity ≥ {t['face']:.3f} · "
+            f"face detection ≥ {t['detection']:.2f} — {'modified for this session' if modified else 'defaults'}"
+        )
+        self.thresholdsLabel.setProperty("modified", modified)
+        self.thresholdsLabel.style().unpolish(self.thresholdsLabel)
+        self.thresholdsLabel.style().polish(self.thresholdsLabel)
+
+    def EditThresholds(self):
+        dialog = ThresholdsDialog(self.thresholds, self)
+        if dialog.exec_() == QDialog.Accepted:
+            self.thresholds = dialog.Values()
+            self._update_thresholds_label()
+
     # ── About ──
 
     def ShowAbout(self):
@@ -449,13 +522,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         paths = self._validate_paths()
         if paths:
             self._remember_folders(paths)
-            self._start(NudityWorker(paths["search"], paths["result"]), "Starting nudity screening…")
+            self._start(NudityWorker(paths["search"], paths["result"], threshold=self.thresholds["nudity"]),
+                        "Starting nudity screening…")
 
     def OnFaceSearchButtonClick(self):
         paths = self._validate_paths(require_learn=True)
         if paths:
             self._remember_folders(paths)
-            self._start(FaceWorker(paths["search"], paths["learn"], paths["result"]), "Starting face search…")
+            self._start(FaceWorker(paths["search"], paths["learn"], paths["result"],
+                                   threshold=self.thresholds["face"], detection_score=self.thresholds["detection"]),
+                        "Starting face search…")
 
     def closeEvent(self, event):
         if self._worker and self._worker.isRunning():

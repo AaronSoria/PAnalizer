@@ -160,3 +160,70 @@ def test_forget_recent_folders(window, monkeypatch, tmp_path):
         == ("", "", "")
     assert not any(PAnalizerViewModel.MainWindow._settings().allKeys())
     reopened.close()
+
+
+def test_thresholds_start_at_defaults(window):
+    assert window.thresholds == {"nudity": 0.6, "face": 0.363, "detection": 0.7}
+    assert window.thresholdsLabel.text().endswith("— defaults")
+    assert "nudity ≥ 0.60" in window.thresholdsLabel.text()
+
+
+def test_thresholds_dialog_restore_defaults(window):
+    dialog = PAnalizerViewModel.ThresholdsDialog({"nudity": 0.8, "face": 0.5, "detection": 0.5}, window)
+    assert dialog.Values() == {"nudity": 0.8, "face": 0.5, "detection": 0.5}
+    dialog.buttonBox.button(QtWidgets.QDialogButtonBox.RestoreDefaults).click()
+    assert dialog.Values() == PAnalizerViewModel.DEFAULT_THRESHOLDS
+
+
+def test_thresholds_dialog_clamps_to_allowed_range(window):
+    dialog = PAnalizerViewModel.ThresholdsDialog({"nudity": 5.0, "face": -1.0, "detection": 0.0}, window)
+    assert dialog.Values() == {"nudity": 0.99, "face": 0.1, "detection": 0.3}
+
+
+def _accept_dialog_with(monkeypatch, values):
+    def fake_exec(dialog):
+        dialog.SetValues(values)
+        return QtWidgets.QDialog.Accepted
+
+    monkeypatch.setattr(PAnalizerViewModel.ThresholdsDialog, "exec_", fake_exec)
+
+
+def test_edited_thresholds_are_shown_and_used(window, monkeypatch, tmp_path):
+    _accept_dialog_with(monkeypatch, {"nudity": 0.75, "face": 0.45, "detection": 0.55})
+    window.ThresholdsButton.click()
+    assert window.thresholdsLabel.text() == (
+        "Thresholds: nudity ≥ 0.75 · face similarity ≥ 0.450 · face detection ≥ 0.55 — modified for this session")
+    assert window.thresholdsLabel.property("modified") is True
+
+    started = []
+    monkeypatch.setattr(window, "_start", lambda worker, message: started.append(worker))
+    for name in ("search", "learn", "results"):
+        (tmp_path / name).mkdir()
+    window.DirectorySearch.setText(str(tmp_path / "search"))
+    window.DirectoryLearn.setText(str(tmp_path / "learn"))
+    window.DirectoryResult.setText(str(tmp_path / "results"))
+    window.OnNudeSearchButtonClick()
+    window.OnFaceSearchButtonClick()
+    assert started[0].threshold == 0.75
+    assert (started[1].threshold, started[1].detection_score) == (0.45, 0.55)
+
+
+def test_cancelled_dialog_keeps_thresholds(window, monkeypatch):
+    monkeypatch.setattr(PAnalizerViewModel.ThresholdsDialog, "exec_", lambda dialog: QtWidgets.QDialog.Rejected)
+    window.actionThresholds.trigger()
+    assert window.thresholds == PAnalizerViewModel.DEFAULT_THRESHOLDS
+
+
+def test_thresholds_are_not_remembered_between_sessions(window, monkeypatch):
+    _accept_dialog_with(monkeypatch, {"nudity": 0.9, "face": 0.6, "detection": 0.9})
+    window.ThresholdsButton.click()
+    reopened = PAnalizerViewModel.MainWindow()
+    assert reopened.thresholds == PAnalizerViewModel.DEFAULT_THRESHOLDS
+    reopened.close()
+
+
+def test_thresholds_locked_while_running(window):
+    window._set_ui_running(True)
+    assert not window.ThresholdsButton.isEnabled() and not window.actionThresholds.isEnabled()
+    window._set_ui_running(False)
+    assert window.ThresholdsButton.isEnabled() and window.actionThresholds.isEnabled()

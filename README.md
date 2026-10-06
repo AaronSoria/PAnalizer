@@ -147,6 +147,21 @@ on Windows or `~/.config/PAnalizer/PAnalizer.ini` on Linux. Use
 **File › Forget recent folders** to delete them, for example before handing
 the machine to another examiner.
 
+**Detection thresholds.** **Settings › Detection thresholds…** (or the
+**Thresholds…** button) changes, for the current session only:
+
+| Threshold | Default | Range | Effect of lowering it |
+|---|---|---|---|
+| Nudity score | 0.60 | 0.05–0.99 | More images flagged, more false positives |
+| Face similarity | 0.363 | 0.10–0.90 | More matches, including other people |
+| Face detection confidence | 0.70 | 0.30–0.99 | Smaller or partly hidden faces found, more non-faces |
+
+The values in use are shown under the analysis buttons ("modified for this
+session" when they differ from the defaults), and every session log records
+them with a `default_thresholds` flag. They are never saved: PAnalizer always
+starts with the defaults, so a value changed for one case is not carried into
+the next.
+
 **Help › About PAnalizer** shows the version, license and third-party
 licenses.
 
@@ -156,7 +171,8 @@ licenses.
 PAnalizer.py                      Entry point: starts the Qt application
 ViewModels/PAnalizerViewModel.py  Main window and background scan workers
 Views/PAnalizerView.ui            Qt Designer layout
-Views/PAnalizerView_ui.py         Python code generated from the .ui file (pyuic5)
+Views/ThresholdsDialog.ui         Qt Designer layout of the thresholds dialog
+Views/*_ui.py                     Python code generated from the .ui files (pyuic5)
 Views/style.qss                   Interface style sheet (colors, spacing)
 docs/screenshot.png               Screenshot used in this README
 Libs/ImageScanner.py              Nudity detection, face detection/recognition, copies, log
@@ -173,9 +189,11 @@ Read these before relying on any result.
 - **Accuracy has not been measured** on any dataset for this tool. Both
   models produce false positives and false negatives; validate them on data
   representative of your cases.
-- **Fixed thresholds.** The nudity score threshold (0.6), the face similarity
-  threshold (0.363) and the face detection confidence (0.7) are set in
-  `Libs/ImageScanner.py` and cannot be changed from the interface.
+- **Thresholds trade misses for false positives.** The defaults (nudity 0.60,
+  face similarity 0.363, face detection 0.70) were not tuned on a labeled
+  dataset; lowering them finds more but reports more images that do not
+  match. Record any change in your case notes (the session log records the
+  values used).
 - **Small details can be missed.** NudeNet analyzes images at 320 pixels, and
   face detection runs on images reduced to at most 1280 pixels on their longest
   side, so small or distant people and faces may not be detected.
