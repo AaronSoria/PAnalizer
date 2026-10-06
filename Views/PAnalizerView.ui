@@ -210,6 +210,16 @@
           </spacer>
          </item>
          <item>
+          <widget class="QPushButton" name="ThresholdsButton">
+           <property name="toolTip">
+            <string>Change the detection thresholds for this session</string>
+           </property>
+           <property name="text">
+            <string>Thresholds…</string>
+           </property>
+          </widget>
+         </item>
+         <item>
           <widget class="QPushButton" name="StopButton">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -232,6 +242,13 @@
           </widget>
          </item>
         </layout>
+       </item>
+       <item>
+        <widget class="QLabel" name="thresholdsLabel">
+         <property name="text">
+          <string>Thresholds</string>
+         </property>
+        </widget>
        </item>
        <item>
         <layout class="QHBoxLayout" name="progressLayout">
@@ -369,6 +386,12 @@
     <addaction name="separator"/>
     <addaction name="actionQuit"/>
    </widget>
+   <widget class="QMenu" name="menuSettings">
+    <property name="title">
+     <string>&amp;Settings</string>
+    </property>
+    <addaction name="actionThresholds"/>
+   </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
      <string>&amp;Help</string>
@@ -376,6 +399,7 @@
     <addaction name="actionAbout"/>
    </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuSettings"/>
    <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
@@ -411,6 +435,11 @@
     <string>Ctrl+Q</string>
    </property>
   </action>
+  <action name="actionThresholds">
+   <property name="text">
+    <string>Detection &amp;thresholds…</string>
+   </property>
+  </action>
   <action name="actionAbout">
    <property name="text">
     <string>&amp;About PAnalizer</string>
@@ -426,6 +455,7 @@
   <tabstop>SearchResultButton</tabstop>
   <tabstop>NudeSearchButton</tabstop>
   <tabstop>FaceSearchButton</tabstop>
+  <tabstop>ThresholdsButton</tabstop>
   <tabstop>StopButton</tabstop>
   <tabstop>ResultsTable</tabstop>
   <tabstop>OpenResultsButton</tabstop>
