@@ -35,5 +35,7 @@ Both run in CI on Linux and Windows for Python 3.11–3.13.
 - `Views/PAnalizerView_ui.py` is generated from `Views/PAnalizerView.ui`.
   Edit the `.ui` file in Qt Designer and regenerate it with
   `pyuic5 Views/PAnalizerView.ui -o Views/PAnalizerView_ui.py`.
+- Colors and spacing live in `Views/style.qss`. Keep the interface sober:
+  neutral colors, one accent, and no thumbnails of analyzed images.
 - By contributing you agree that your contributions are licensed under the
   [GNU Affero General Public License v3.0 or later](LICENSE).
