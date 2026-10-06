@@ -110,3 +110,50 @@ def test_about_action_opens_dialog(window, monkeypatch):
     monkeypatch.setattr(PAnalizerViewModel.QMessageBox, "exec_", lambda box: shown.append(box.text()))
     window.actionAbout.trigger()
     assert len(shown) == 1 and "PAnalizer" in shown[0]
+
+
+def _fill_and_start(window, monkeypatch, search, learn, result):
+    monkeypatch.setattr(window, "_start", lambda worker, message: None)
+    window.DirectorySearch.setText(str(search))
+    window.DirectoryLearn.setText(str(learn))
+    window.DirectoryResult.setText(str(result))
+    window.OnFaceSearchButtonClick()
+
+
+def test_folders_are_remembered_between_sessions(window, monkeypatch, tmp_path):
+    folders = [tmp_path / n for n in ("search", "learn", "results")]
+    for d in folders:
+        d.mkdir()
+    _fill_and_start(window, monkeypatch, *folders)
+
+    reopened = PAnalizerViewModel.MainWindow()
+    assert [reopened.DirectorySearch.text(), reopened.DirectoryLearn.text(), reopened.DirectoryResult.text()] \
+        == [str(d) for d in folders]
+    reopened.close()
+
+
+def test_missing_remembered_folders_are_not_restored(window, monkeypatch, tmp_path):
+    folders = [tmp_path / n for n in ("search", "learn", "results")]
+    for d in folders:
+        d.mkdir()
+    _fill_and_start(window, monkeypatch, *folders)
+    folders[1].rmdir()
+
+    reopened = PAnalizerViewModel.MainWindow()
+    assert reopened.DirectoryLearn.text() == ""
+    assert reopened.DirectorySearch.text() == str(folders[0])
+    reopened.close()
+
+
+def test_forget_recent_folders(window, monkeypatch, tmp_path):
+    folders = [tmp_path / n for n in ("search", "learn", "results")]
+    for d in folders:
+        d.mkdir()
+    _fill_and_start(window, monkeypatch, *folders)
+    window.actionForgetFolders.trigger()
+
+    reopened = PAnalizerViewModel.MainWindow()
+    assert (reopened.DirectorySearch.text(), reopened.DirectoryLearn.text(), reopened.DirectoryResult.text()) \
+        == ("", "", "")
+    assert not any(PAnalizerViewModel.MainWindow._settings().allKeys())
+    reopened.close()

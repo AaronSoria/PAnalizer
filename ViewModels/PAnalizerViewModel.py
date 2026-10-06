@@ -4,7 +4,7 @@
 import os
 
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import Qt, QThread, QUrl, pyqtSignal
+from PyQt5.QtCore import QSettings, Qt, QThread, QUrl, pyqtSignal
 from PyQt5.QtGui import QDesktopServices
 from PyQt5.QtWidgets import QFileDialog, QHeaderView, QLabel, QMessageBox, QTableWidgetItem
 
@@ -248,7 +248,43 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.actionOpenLog.triggered.connect(self.OpenLog)
         self.actionQuit.triggered.connect(self.close)
         self.actionAbout.triggered.connect(self.ShowAbout)
+        self.actionForgetFolders.triggered.connect(self.ForgetFolders)
         self.DirectoryResult.textChanged.connect(self._update_open_buttons)
+        self._restore_folders()
+
+    # ── Remembered folders ──
+
+    FOLDER_KEYS = (("folders/search", "DirectorySearch"), ("folders/learn", "DirectoryLearn"),
+                   ("folders/results", "DirectoryResult"))
+
+    @staticmethod
+    def _settings():
+        # Plain INI file (not the Windows registry) so examiners can inspect or delete it:
+        # %APPDATA%\PAnalizer\PAnalizer.ini on Windows, ~/.config/PAnalizer/PAnalizer.ini on Linux.
+        return QSettings(QSettings.IniFormat, QSettings.UserScope, "PAnalizer", "PAnalizer")
+
+    def _restore_folders(self):
+        settings = self._settings()
+        for key, name in self.FOLDER_KEYS:
+            path = settings.value(key, "", type=str)
+            if path and os.path.isdir(path):
+                getattr(self, name).setText(path)
+                getattr(self, name).setCursorPosition(0)
+
+    def _remember_folders(self, paths):
+        settings = self._settings()
+        for (key, _), value in zip(self.FOLDER_KEYS, (paths["search"], paths["learn"], paths["result"])):
+            if value:
+                settings.setValue(key, value)
+            else:
+                settings.remove(key)
+        settings.sync()
+
+    def ForgetFolders(self):
+        settings = self._settings()
+        settings.remove("folders")
+        settings.sync()
+        self.statusbar.showMessage("Recent folders forgotten.")
 
     # ── Folder selection ──
 
@@ -412,11 +448,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def OnNudeSearchButtonClick(self):
         paths = self._validate_paths()
         if paths:
+            self._remember_folders(paths)
             self._start(NudityWorker(paths["search"], paths["result"]), "Starting nudity screening…")
 
     def OnFaceSearchButtonClick(self):
         paths = self._validate_paths(require_learn=True)
         if paths:
+            self._remember_folders(paths)
             self._start(FaceWorker(paths["search"], paths["learn"], paths["result"]), "Starting face search…")
 
     def closeEvent(self, event):

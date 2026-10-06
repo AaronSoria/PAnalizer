@@ -365,6 +365,8 @@
     <addaction name="actionOpenResults"/>
     <addaction name="actionOpenLog"/>
     <addaction name="separator"/>
+    <addaction name="actionForgetFolders"/>
+    <addaction name="separator"/>
     <addaction name="actionQuit"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
@@ -391,6 +393,14 @@
    </property>
    <property name="text">
     <string>Open &amp;log</string>
+   </property>
+  </action>
+  <action name="actionForgetFolders">
+   <property name="text">
+    <string>&amp;Forget recent folders</string>
+   </property>
+   <property name="toolTip">
+    <string>Delete the folder paths PAnalizer remembers between sessions</string>
    </property>
   </action>
   <action name="actionQuit">
