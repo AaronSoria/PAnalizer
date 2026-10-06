@@ -1,5 +1,7 @@
 """Behavior of the main window, driven through the worker signal handlers."""
 
+import os
+
 import pytest
 from PyQt5 import QtWidgets
 
@@ -23,17 +25,18 @@ def test_idle_state(window):
     assert window.progressLabel.text() == "Ready"
 
 
-def test_matches_are_listed_with_score_and_copy(window):
-    window._search_root = r"C:\case\images"
-    window._on_result_found(r"C:\case\images\phone\a.jpg", 0.6612, r"C:\case\results\a.jpg")
-    window._on_result_found(r"C:\case\images\b.jpg", 0.5, "")
+def test_matches_are_listed_with_score_and_copy(window, tmp_path):
+    images, results = str(tmp_path / "images"), str(tmp_path / "results")
+    match = os.path.join(images, "phone", "a.jpg")
+    window._search_root = images
+    window._on_result_found(match, 0.6612, os.path.join(results, "a.jpg"))
+    window._on_result_found(os.path.join(images, "b.jpg"), 0.5, "")
 
     table = window.ResultsTable
     rows = [[table.item(r, c).text() for c in range(3)] for r in range(table.rowCount())]
-    assert rows[0][1:] == ["0.66", "a.jpg"]
-    assert rows[0][0].replace("/", "\\") == r"phone\a.jpg"
-    assert rows[1][1:] == ["0.50", "copy failed"]
-    assert table.item(0, 0).toolTip() == r"C:\case\images\phone\a.jpg"
+    assert rows[0] == [os.path.join("phone", "a.jpg"), "0.66", "a.jpg"]
+    assert rows[1] == ["b.jpg", "0.50", "copy failed"]
+    assert table.item(0, 0).toolTip() == match
 
 
 def test_progress_and_finish_labels(window):
